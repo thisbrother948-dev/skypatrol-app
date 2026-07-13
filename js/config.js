@@ -13,7 +13,9 @@ export const DEFAULT_CONFIG = {
 export function getConfig() {
   let saved = {}
   try { saved = JSON.parse(localStorage.getItem(KEY) || '{}') } catch { saved = {} }
-  return { ...DEFAULT_CONFIG, ...saved }
+  const cfg = { ...DEFAULT_CONFIG, ...saved }
+  if (cfg.branch === '대구·경북지사') cfg.branch = '대구경북지사'  // 옛 표기(가운뎃점) 정규화
+  return cfg
 }
 
 export function setConfig(partial) {
