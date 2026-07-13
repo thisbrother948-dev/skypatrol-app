@@ -99,7 +99,7 @@ function signCell(role, holder, showName = true) {
     td.innerHTML = ''
     if (holder.png) { const im = new Image(); im.src = holder.png; td.appendChild(im) }
     if (showName && holder.name) { const d = document.createElement('div'); d.className = 'signname'; d.textContent = holder.name; td.appendChild(d) }
-    if (!holder.png && !(showName && holder.name)) { td.textContent = '(탭하여 서명)'; td.classList.add('ph') }
+    if (!holder.png && !(showName && holder.name)) { td.textContent = '(서명)'; td.classList.add('ph') }
     else td.classList.remove('ph')
   }
   render()
@@ -142,7 +142,7 @@ function agencySelectCell(values, getters) {
   td.setAttribute('data-key', 'agency')
   const names = agencyNames().length ? agencyNames() : getConfig().agencies
   const sel = document.createElement('select')
-  sel.innerHTML = '<option value="">대리점 선택</option>' +
+  sel.innerHTML = '<option value="">선택</option>' +
     names.map(a => `<option${values.agency === a ? ' selected' : ''}>${a}</option>`).join('')
   td.appendChild(sel)
   getters.agency = () => sel.value
@@ -305,7 +305,7 @@ function attendeeCells(f, v, g, opts = {}) {
   } else {
     sosoTd.className = 'val soso fixed'; sosoTd.textContent = f.affiliation || ''
   }
-  const titleTd = editCell(cur.title || '', '직위')
+  const titleTd = editCell(cur.title || '', '직위', 'att-pos')
   const signTd = signCell(f.label, holder, true)
   g[f.key] = () => {
     const out = { title: titleTd.textContent.trim(), name: holder.name, sign: holder.png }
@@ -316,7 +316,7 @@ function attendeeCells(f, v, g, opts = {}) {
 }
 
 function attendeeHead(tbl, secTitle) {
-  tbl.innerHTML = '<colgroup><col style="width:16%"><col style="width:12%"><col style="width:22%"><col style="width:16%"><col style="width:12%"><col style="width:22%"></colgroup>'
+  tbl.innerHTML = '<colgroup><col style="width:18%"><col style="width:11%"><col style="width:21%"><col style="width:18%"><col style="width:11%"><col style="width:21%"></colgroup>'
   if (secTitle) tbl.insertRow().innerHTML = `<td class="sec" colspan="6">${secTitle}</td>`
   tbl.insertRow().innerHTML = `<td class="sub" colspan="3">도급인</td><td class="sub" colspan="3">수급인</td>`
   tbl.insertRow().innerHTML = `<td class="clh2">소속</td><td class="clh2">직위</td><td class="clh2">성함(서명)</td><td class="clh2">소속</td><td class="clh2">직위</td><td class="clh2">성함(서명)</td>`
@@ -349,7 +349,7 @@ SHEETS.hapdong = (def, v, g, root) => {
   // 공용 대리점 select(수급인 소속 = agency)
   const names = agencyNames().length ? agencyNames() : getConfig().agencies
   const agSel = document.createElement('select')
-  agSel.innerHTML = '<option value="">대리점 선택</option>' + names.map(a => `<option${v.agency === a ? ' selected' : ''}>${a}</option>`).join('')
+  agSel.innerHTML = '<option value="">선택</option>' + names.map(a => `<option${v.agency === a ? ' selected' : ''}>${a}</option>`).join('')
   g.agency = () => agSel.value
   const row1 = at.insertRow()
   ;[...attendeeCells(F('att_jisajang'), v, g), ...attendeeCells(F('att_daerijeom1'), v, g, { agencySelect: agSel })].forEach(td => row1.appendChild(td))
@@ -435,8 +435,8 @@ const SHEET_CSS = `
 .sheet table{width:100%;border-collapse:collapse;table-layout:fixed;}
 .sheet td,.sheet th{border:1px solid #8a94a0;padding:5px 6px;font-size:12px;line-height:1.4;vertical-align:middle;word-break:break-word;letter-spacing:-.3px;}
 .titlebar{display:flex;border-bottom:1.5px solid #2b3440;}
-.titlebar .t{flex:1;display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:800;letter-spacing:-.5px;padding:12px 6px;text-align:center;}
-.gyeoljae{border-left:1px solid #8a94a0;flex:0 0 42%;max-width:170px;}
+.titlebar .t{flex:1;display:flex;align-items:center;justify-content:center;font-size:14.5px;font-weight:800;letter-spacing:-.5px;padding:9px 6px;text-align:center;line-height:1.2;word-break:keep-all;}
+.gyeoljae{border-left:1px solid #8a94a0;flex:0 0 40%;max-width:160px;}
 .gyeoljae table{width:100%;}
 .gyeoljae td{text-align:center;padding:0;}
 .gyeoljae .gj{writing-mode:vertical-rl;background:#eef1f5;font-size:10.5px;font-weight:700;width:20px;letter-spacing:2px;}
@@ -476,11 +476,12 @@ const SHEET_CSS = `
 .bigcell:focus{outline:2px solid #1565C0;outline-offset:-2px;background:#E8F1FB;}
 .photowrap{padding:8px;}
 .sheet .sub{background:#eef1f5;font-weight:800;text-align:center;font-size:12px;}
-.clh2{background:#eef1f5;font-weight:700;text-align:center;font-size:10.5px;padding:5px 3px;}
-.soso{font-size:10.5px;}
-.soso.fixed{background:#fafbfc;color:#2a333d;text-align:center;font-size:10px;}
+.clh2{background:#eef1f5;font-weight:700;text-align:center;font-size:10px;padding:4px 2px;}
+.soso{font-size:9.5px;line-height:1.2;}
+.soso.fixed{background:#fafbfc;color:#2a333d;text-align:center;font-size:9px;}
+.att-pos{font-size:10px;padding:3px 2px;}
 .soso.agmirror{text-align:center;color:#9aa5b1;}
-.soso select{width:100%;border:none;background:transparent;font-size:10.5px;font-family:inherit;padding:2px 0;}
+.soso select{width:100%;border:none;background:transparent;font-size:9.5px;font-family:inherit;padding:2px 0;}
 .signcell.empty{background:#fff;cursor:default;}
 .photocell{padding:5px;}
 .photocell .photo-grid,.photocell .pgrid{display:block;}
