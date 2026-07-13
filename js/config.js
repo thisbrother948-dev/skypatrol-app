@@ -4,7 +4,7 @@ const KEY = 'skypatrol.config'
 
 // 지사/대리점은 설정 데이터. 코드 로직은 이 값에 의존하지 않고 주입만 받는다.
 export const DEFAULT_CONFIG = {
-  branch: '대구·경북지사',
+  branch: '대구경북지사',
   agencies: ['행복대리점', '미래대리점', '한빛대리점'],
   enabledForms: ['sunhoe', 'hapdong', 'hoeuirok'],
   APPS_SCRIPT_URL: '',   // 비면 목(로컬), URL이면 실제 드라이브 저장
