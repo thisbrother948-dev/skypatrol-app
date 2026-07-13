@@ -109,6 +109,20 @@ function signCell(role, holder, showName = true) {
   return td
 }
 
+// ---- 결재 박스(제목 옆). rowspan 없이 2행 3열로 안전하게. 서명칸엔 이름+서명 표시. ----
+function gyeoljaeBox(labA, labB, holderA, holderB, roleA, roleB) {
+  const gj = document.createElement('div'); gj.className = 'gyeoljae'
+  const t = document.createElement('table'); gj.appendChild(t)
+  const r1 = t.insertRow()
+  r1.innerHTML = `<td class="gj">결재</td><td class="lab">${labA}</td><td class="lab">${labB}</td>`
+  const r2 = t.insertRow()
+  const blank = document.createElement('td'); blank.className = 'gj-b'
+  r2.appendChild(blank)
+  r2.appendChild(signCell(roleA, holderA, true))
+  r2.appendChild(signCell(roleB, holderB, true))
+  return gj
+}
+
 // ---- 메타 바(월/차수) + agency는 시트 내 select ----
 function metaBar(def, values, getters) {
   const bar = document.createElement('div')
@@ -160,17 +174,11 @@ SHEETS.sunhoe = (def, v, g, root) => {
   const title = document.createElement('div'); title.className = 'titlebar'
   const insp = { png: v.sigInspector || null }
   const conf = { png: v.sigConfirmer || null }
-  const gj = document.createElement('div'); gj.className = 'gyeoljae'
-  const gjt = document.createElement('table'); gj.appendChild(gjt)
-  gjt.innerHTML = `<tr><td class="gj" rowspan="2">결재</td><td class="lab">점검자</td><td class="lab">확인자</td></tr>`
-  const gjr = document.createElement('tr')
-  const inspTd = signCell('점검자', insp, false)
-  const confTd = signCell('확인자(지사장)', conf, false)
-  gjr.appendChild(inspTd); gjr.appendChild(confTd); gjt.appendChild(gjr)
+  title.innerHTML = `<div class="t">${def.title}</div>`
+  title.appendChild(gyeoljaeBox('점검자', '확인자', insp, conf, '점검자', '확인자(지사장)'))
+  sheet.appendChild(title)
   g.sigInspector = () => insp.png || null
   g.sigConfirmer = () => conf.png || null
-  title.innerHTML = `<div class="t">${def.title}</div>`
-  title.appendChild(gj); sheet.appendChild(title)
 
   // 기본정보
   const info = document.createElement('table'); sheet.appendChild(info)
@@ -324,13 +332,9 @@ SHEETS.hapdong = (def, v, g, root) => {
   const mgr = { png: v.sigManager || null }, conf = { png: v.sigConfirmer || null }
   const title = document.createElement('div'); title.className = 'titlebar'
   title.innerHTML = `<div class="t">${def.title}</div>`
-  const gj = document.createElement('div'); gj.className = 'gyeoljae'
-  const gjt = document.createElement('table'); gj.appendChild(gjt)
-  gjt.innerHTML = `<tr><td class="gj" rowspan="2">결재</td><td class="lab">담당</td><td class="lab">승인</td></tr>`
-  const gjr = gjt.insertRow()
-  gjr.appendChild(signCell('담당', mgr, false)); gjr.appendChild(signCell('승인(지사장)', conf, false))
+  title.appendChild(gyeoljaeBox('담당', '승인', mgr, conf, '담당', '승인(지사장)'))
+  sheet.appendChild(title)
   g.sigManager = () => mgr.png || null; g.sigConfirmer = () => conf.png || null
-  title.appendChild(gj); sheet.appendChild(title)
 
   // 기본정보
   const info = document.createElement('table'); sheet.appendChild(info)
@@ -369,13 +373,9 @@ SHEETS.hoeuirok = (def, v, g, root) => {
   const mgr = { png: v.sigManager || null }, conf = { png: v.sigConfirmer || null }
   const title = document.createElement('div'); title.className = 'titlebar'
   title.innerHTML = `<div class="t">${def.title}</div>`
-  const gj = document.createElement('div'); gj.className = 'gyeoljae'
-  const gjt = document.createElement('table'); gj.appendChild(gjt)
-  gjt.innerHTML = `<tr><td class="gj" rowspan="2">결재</td><td class="lab">담당</td><td class="lab">승인</td></tr>`
-  const gjr = gjt.insertRow()
-  gjr.appendChild(signCell('담당', mgr, false)); gjr.appendChild(signCell('승인(지사장)', conf, false))
+  title.appendChild(gyeoljaeBox('담당', '승인', mgr, conf, '담당', '승인(지사장)'))
+  sheet.appendChild(title)
   g.sigManager = () => mgr.png || null; g.sigConfirmer = () => conf.png || null
-  title.appendChild(gj); sheet.appendChild(title)
 
   // 일시 / 회의방식
   const info = document.createElement('table'); sheet.appendChild(info)
@@ -441,6 +441,7 @@ const SHEET_CSS = `
 .gyeoljae td{text-align:center;padding:0;}
 .gyeoljae .gj{writing-mode:vertical-rl;background:#eef1f5;font-size:10.5px;font-weight:700;width:20px;letter-spacing:2px;}
 .gyeoljae .lab{background:#eef1f5;font-size:10.5px;font-weight:700;padding:4px 2px;}
+.gj-b{background:#f6f8fa;}
 .signcell{height:46px;cursor:pointer;position:relative;font-size:10px;color:#aeb6c0;}
 .signcell.ph{color:#aeb6c0;}
 .signcell img{max-width:100%;max-height:40px;display:block;margin:0 auto;}
