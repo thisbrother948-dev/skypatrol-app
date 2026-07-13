@@ -43,3 +43,78 @@ export async function saveWithQueue(envelope, deps) {
     return { ok: false, error: String(e), retryable: true }
   }
 }
+
+// 안정성 핵심: 로컬 즉시 저장 후 업로드 시도. 실패/오프라인은 pending으로 남아 flushPending이 재시도.
+export async function syncSave(doc, deps) {
+  const { saveLocal, remoteSave, online } = deps
+  if (!online) {
+    try {
+      await saveLocal({ ...doc, sync: 'pending' })
+    } catch (e) {
+      return { ok: false, retryable: true, error: String(e) }
+    }
+    return { ok: false, queued: true }
+  }
+  try {
+    await saveLocal({ ...doc, sync: 'pending' })
+  } catch (e) {
+    return { ok: false, retryable: true, error: String(e) }
+  }
+  let r
+  try {
+    r = await remoteSave(doc)
+  } catch (e) {
+    return { ok: false, retryable: true, error: String(e) }
+  }
+  if (r.ok) {
+    try {
+      await saveLocal({ ...doc, rev: r.rev, sync: 'synced' })
+    } catch (e) {
+      return { ok: false, retryable: true, error: String(e) }
+    }
+    return { ok: true, rev: r.rev, pdfUrl: r.pdfUrl }
+  }
+  if (r.conflict) {
+    try {
+      await saveLocal({ ...doc, sync: 'conflict' })
+    } catch (e) {
+      return { ok: false, retryable: true, error: String(e) }
+    }
+    return { ok: false, conflict: true, currentRev: r.currentRev }
+  }
+  // 네트워크 실패: pending 유지(재시도)
+  return { ok: false, retryable: true, error: r.error }
+}
+
+export async function flushPending(deps) {
+  const { listPending, remoteSave, saveLocal } = deps
+  const pend = await listPending()
+  const results = []
+  for (const doc of pend) {
+    try {
+      const r = await remoteSave(doc)
+      if (r.ok) {
+        try {
+          await saveLocal({ ...doc, rev: r.rev, sync: 'synced' })
+        } catch (e) {
+          results.push({ docId: doc.docId, ok: false, error: String(e) })
+          continue
+        }
+        results.push({ docId: doc.docId, ok: true })
+      }
+      else if (r.conflict) {
+        try {
+          await saveLocal({ ...doc, sync: 'conflict' })
+        } catch (e) {
+          results.push({ docId: doc.docId, ok: false, error: String(e) })
+          continue
+        }
+        results.push({ docId: doc.docId, conflict: true })
+      }
+      else results.push({ docId: doc.docId, ok: false })
+    } catch (e) {
+      results.push({ docId: doc.docId, ok: false, error: String(e) })
+    }
+  }
+  return results
+}

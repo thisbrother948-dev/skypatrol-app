@@ -135,3 +135,19 @@ textarea{resize:vertical;min-height:56px;line-height:1.5;}
 .attendee .att-soso{font-size:11px;font-weight:700;color:var(--navy);margin-bottom:8px}
 .attendee .att-pos,.attendee .att-name{width:100%;border:1px solid var(--line);border-radius:9px;padding:9px 11px;font-size:13px;margin-bottom:8px;font-family:inherit}
 .attendee .att-soso-input{width:100%;border:1px solid var(--line);border-radius:9px;padding:9px 11px;font-size:13px;margin-bottom:8px;font-family:inherit;font-weight:700}
+
+/* 공유 워크플로우: 상태 액션 버튼 · 동기화 배지 */
+.savebar{display:flex;flex-wrap:wrap;gap:8px;}
+.savebar[hidden]{display:none;}
+.savebar .save-btn{flex:1 1 100%;}
+.act-btn{flex:1 1 40%;border:none;border-radius:13px;padding:15px;font-size:15px;font-weight:800;cursor:pointer;box-shadow:0 3px 12px rgba(21,101,192,.2);}
+.act-btn.go{background:#0d3f7a;color:#fff;}
+.act-btn.done{background:var(--ok,#1B7F2E);color:#fff;}
+.act-btn.revert{background:#eef1f5;color:#5b6470;box-shadow:none;}
+.act-btn.pdf{background:#fff;color:var(--blue,#1565C0);border:1.5px solid var(--blue,#1565C0);box-shadow:none;}
+.open-doc{flex:1;min-width:0;}
+.sync-badge{margin-left:auto;font-size:10.5px;font-weight:700;padding:3px 8px;border-radius:8px;white-space:nowrap;flex:0 0 auto;}
+.sync-badge.s-synced{background:#E4F2E6;color:#1B7F2E;}
+.sync-badge.s-pending,.sync-badge.s-local{background:#FBEBD3;color:#D07A00;}
+.sync-badge.s-conflict{background:#F9E3E3;color:#C62828;}
+.empty-hint{color:var(--muted,#8a94a0);font-size:12px;padding:2px 2px 6px;}

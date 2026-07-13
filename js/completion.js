@@ -1,3 +1,5 @@
+import { nextStatus, STATUS } from './docstatus.js'
+
 export async function applySignature(docIds, field, png, deps) {
   const { getDoc, saveDoc, now } = deps
   const applied = [], failed = []
@@ -74,4 +76,20 @@ export async function revertToDraft(docId, deps) {
   const updated = { ...doc, status: 'draft', savedAt: now() }
   await saveDoc(updated)
   return updated
+}
+
+export async function makePdfNow(doc, deps) {
+  return await deps.renderPdf(doc)   // 상태 무관, 현재 값으로. 아무때나 미리보기/저장.
+}
+
+export async function advance(docId, action, deps) {
+  const { getDoc, syncSave, renderPdf } = deps
+  const doc = await getDoc(docId)
+  if (!doc) return { ok: false, error: 'not found' }
+  const status = nextStatus(doc.status, action)
+  const next = { ...doc, status }
+  if (status === STATUS.DONE && renderPdf) {
+    try { next.pdfBase64 = bytesToBase64(await renderPdf(doc)) } catch { return { ok: false, error: 'render' } }
+  }
+  return await syncSave(next, deps)
 }

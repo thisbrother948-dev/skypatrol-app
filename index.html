@@ -29,13 +29,13 @@
 import { getConfig, resolveAgencyDefaults } from './js/config.js'
 import { renderHome } from './js/app.js'
 import { renderForm } from './js/form-sheet.js'
-import { saveDoc, getDoc, listByAgencyForm, listByForm, listOpen, listBySync, setSync } from './js/store.js'
-import { submit } from './js/backend.js'
-import { applySignature, completeDocs, revertToDraft } from './js/completion.js'
-import { nextRound, isDuplicate } from './js/naming.js'
+import { saveDoc, getDoc, listByAgencyForm, listAll, listBySync } from './js/store.js'
+import { syncSave, flushPending } from './js/backend.js'
+import { list as sharedList, getDoc as sharedGet, saveDoc as sharedSave } from './js/sharedstore.js'
+import { nextStatus, STATUS } from './js/docstatus.js'
+import { nextRound } from './js/naming.js'
 import { buildDocMeta } from './js/docname.js'
 import { createSaveButton } from './js/components/savebadge.js'
-import { createSignaturePad } from './js/components/signature.js'
 import { FORMS } from './forms/index.js'
 import { renderPdf as renderPdfCore } from './js/pdf-render.js'
 
@@ -46,8 +46,39 @@ const branchBadge = document.getElementById('branchBadge')
 const backBtn = document.getElementById('backBtn')
 const online = () => navigator.onLine
 const now = () => new Date().toISOString()
-const syncDep = async (id, s) => { const d = await getDoc(id); if (d) await saveDoc({ ...d, sync: s }) }
-const cdeps = { getDoc, saveDoc, submit, setSync: syncDep, online: online(), now }
+const APPS = () => getConfig().APPS_SCRIPT_URL
+
+// 저장: 공유모드(URL 설정)면 syncSave(로컬즉시+원격+충돌), 로컬모드면 로컬 저장.
+async function persist(doc) {
+  if (APPS()) {
+    return syncSave(doc, {
+      saveLocal: d => saveDoc(d),
+      remoteSave: d => sharedSave(d, { url: APPS() }),
+      online: online(),
+    })
+  }
+  await saveDoc({ ...doc, sync: 'local' })
+  return { ok: true, rev: doc.rev }
+}
+
+// 홈 목록: 온라인+URL이면 공유 목록을 로컬에 병합, 아니면 로컬만. 항상 전체 로컬 반환.
+async function loadDocs() {
+  if (online() && APPS()) {
+    const r = await sharedList({ url: APPS() })
+    if (r.ok) {
+      for (const meta of r.docs) {
+        const local = await getDoc(meta.docId)
+        // 로컬에 미전송/충돌 작업이 있으면 원격 메타로 덮지 않음(내 변경 손실 방지).
+        if (local && (local.sync === 'pending' || local.sync === 'conflict')) continue
+        // 로컬 rev가 더 크면(=아직 안 올라간 최신) 덮지 않음.
+        if (local && (local.rev || 0) > (meta.rev || 0)) continue
+        await saveDoc({ ...(local || {}), ...meta, sync: 'synced' })
+      }
+    }
+  }
+  return listAll()
+}
+function bytesToBase64(bytes) { let s = ''; for (let i = 0; i < bytes.length; i++) s += String.fromCharCode(bytes[i]); return btoa(s) }
 
 // 템플릿/폰트는 최초 1회 로드 후 캐시
 const _assets = {}
@@ -67,11 +98,7 @@ function downloadPdf(bytes, fileName) {
 async function renderPdf(doc) {
   const def = FORMS[doc.formId]
   const { templateBytes, fontBytes } = await loadAssets(doc.formId)
-  const bytes = await renderPdfCore({ templateBytes, fontBytes, formId: doc.formId, def, values: doc.values })
-  // 드라이브 URL 미설정(목/로컬 모드)이면 완료 PDF를 기기로 다운로드해 바로 확인 가능하게.
-  // URL 설정 시(실드라이브)엔 다운로드하지 않음 — 서버 저장으로 대체.
-  if (!getConfig().APPS_SCRIPT_URL) downloadPdf(bytes, doc.fileName)
-  return bytes
+  return renderPdfCore({ templateBytes, fontBytes, formId: doc.formId, def, values: doc.values })
 }
 
 function showHome() {
@@ -79,35 +106,39 @@ function showHome() {
   document.getElementById('topTitle').textContent = 'SkyPatrol'
   backBtn.style.display = 'none'; savebar.hidden = true
   home.classList.add('active'); formScreen.classList.remove('active')
-  renderHome(home).then(bindHome)
+  renderHome(home, { loadDocs, shared: !!APPS() }).then(bindHome)
 }
 
 function bindHome() {
   home.querySelectorAll('[data-open]').forEach(b => b.addEventListener('click', () => openForm(b.dataset.open)))
-  document.getElementById('batchSign')?.addEventListener('click', onBatchSign)
-  document.getElementById('batchComplete')?.addEventListener('click', onComplete)
   home.querySelectorAll('.open-doc').forEach(s => {
     const row = s.closest('[data-id]')
-    s.addEventListener('click', async () => {
-      const docId = row.dataset.id
-      if (row.hasAttribute('data-done')) {
-        if (!confirm('완료된 문서입니다. 수정하시겠어요? (완료 해제됩니다)')) return
-        await revertToDraft(docId, { getDoc, saveDoc, now })
-      }
-      openForm(null, docId)
-    })
+    s.addEventListener('click', () => openForm(null, row.dataset.id))
   })
 }
 
+let cur = null // 현재 편집 중 문서 메타 {docId?, status, rev}
+
 async function openForm(formId, existingId) {
-  const doc = existingId ? await getDoc(existingId) : null
+  let doc = null
+  if (existingId) {
+    // 공유모드면 최신을 원격에서 로드(다른 사람 변경 반영), 아니면 로컬.
+    if (online() && APPS()) { const r = await sharedGet(existingId, { url: APPS() }); if (r.ok) doc = r.doc }
+    if (!doc) doc = await getDoc(existingId)
+  }
   const def = FORMS[formId || doc?.formId]
   if (!def) return
+  cur = { docId: doc?.docId, status: (doc?.status) || STATUS.DRAFT, rev: doc?.rev || 0 }
   document.getElementById('topTitle').textContent = def.title
   backBtn.style.display = 'flex'
   home.classList.remove('active'); formScreen.classList.add('active')
   const { el, collect } = renderForm(def, doc?.values || {}, { stage: 'input' })
   formScreen.innerHTML = ''; formScreen.appendChild(el)
+  wireAgency(el, def, doc)
+  buildSavebar(def, collect, doc)
+}
+
+function wireAgency(el, def, doc) {
   const agencySel = el.querySelector('[data-key="agency"] select')
   const monthInp = el.querySelector('[data-key="month"] input')
   const roundInp = el.querySelector('[data-key="round"] input')
@@ -129,69 +160,92 @@ async function openForm(formId, existingId) {
       }
     })
   }
-  savebar.hidden = false; savebar.innerHTML = ''
-  const { el: btn, setState } = createSaveButton(() => onSave(def, collect, doc, setState))
-  savebar.appendChild(btn)
 }
 
-async function onSave(def, collect, existing, setState) {
-  const v = collect()
-  const yy = (v.inspectDate || new Date().toISOString().slice(0,10)).slice(0,4)
-  const meta = buildDocMeta(def, v, existing?.docId, yy)
-  if (!meta.byBranch && !v.agency) { alert('대리점을 선택하세요'); return }
-  const docs = meta.byBranch ? await listByForm(def.id) : await listByAgencyForm(v.agency, def.id)
-  const others = docs.filter(d => d.docId !== existing?.docId).map(d => d.values)
-  if (isDuplicate(others, v.month, v.round)) {
-    if (!confirm(`${v.month}월 ${v.round}차가 이미 있습니다. 덮어쓸까요?`)) return
+const ACTIONS = {
+  [STATUS.DRAFT]:   { action: 'submit', label: '확인자에게 넘김', cls: 'go' },
+  [STATUS.CONFIRM]: { action: 'confirmSign', label: '총괄에게 넘김', cls: 'go' },
+  [STATUS.APPROVE]: { action: 'approve', label: '완료 (PDF 생성)', cls: 'done' },
+  [STATUS.DONE]:    { action: 'revert', label: '되돌리기 (수정)', cls: 'revert' },
+}
+
+function buildSavebar(def, collect, doc) {
+  savebar.hidden = false; savebar.innerHTML = ''
+  const { el: saveBtn, setState } = createSaveButton(() => doSave(def, collect, doc, setState))
+  savebar.appendChild(saveBtn)
+  const act = ACTIONS[cur.status]
+  if (act) {
+    const b = document.createElement('button')
+    b.type = 'button'; b.className = 'act-btn ' + act.cls; b.textContent = act.label
+    b.addEventListener('click', () => doAction(def, collect, doc, act.action))
+    savebar.appendChild(b)
   }
-  setState('uploading')
-  const doc = {
+  const pdfB = document.createElement('button')
+  pdfB.type = 'button'; pdfB.className = 'act-btn pdf'; pdfB.textContent = 'PDF 저장'
+  pdfB.addEventListener('click', () => doPdf(def, collect, doc))
+  savebar.appendChild(pdfB)
+}
+
+function buildDoc(def, v, doc) {
+  const yy = (v.inspectDate || new Date().toISOString().slice(0, 10)).slice(0, 4)
+  const meta = buildDocMeta(def, v, cur.docId || doc?.docId, yy)
+  cur.docId = meta.docId
+  return {
     docId: meta.docId, formId: def.id, branch: getConfig().branch, agency: meta.agency,
-    fileName: meta.fileName, status: 'draft', values: { ...(existing?.values || {}), ...v },
-    sync: existing?.sync || 'local', savedAt: now(),
+    fileName: meta.fileName, status: cur.status, rev: cur.rev,
+    values: { ...(doc?.values || {}), ...v }, savedAt: now(),
   }
-  await saveDoc(doc)
+}
+
+async function doSave(def, collect, doc, setState) {
+  // 완료된 문서는 조용히 값만 바뀌면 PDF와 어긋나므로, 수정은 '되돌리기'를 먼저.
+  if (cur.status === STATUS.DONE) { alert("완료된 문서입니다. 수정하려면 먼저 '되돌리기(수정)'를 눌러주세요."); return }
+  const v = collect()
+  const meta = buildDocMeta(def, v, cur.docId || doc?.docId, '0')
+  if (!meta.byBranch && !v.agency) { alert('대리점을 선택하세요'); return }
+  setState('uploading')
+  const r = await persist(buildDoc(def, v, doc))
+  if (r.conflict) { setState('error'); alert('다른 사람이 먼저 수정했습니다. 새로고침 후 다시 저장하세요.'); return }
+  cur.rev = r.rev ?? cur.rev
   setState('done'); setTimeout(showHome, 700)
 }
 
-async function onBatchSign() {
-  const ids = [...home.querySelectorAll('#signList .pick:checked')].map(c => c.closest('[data-id]').dataset.id)
-  if (!ids.length) { alert('서명할 문서를 선택하세요'); return }
-  const pad = createSignaturePad()
-  document.getElementById('topTitle').textContent = '지사장 확인/승인 서명'
-  backBtn.style.display = 'flex'
-  formScreen.innerHTML = '<h2 style="padding:16px 16px 0">지사장 확인/승인 서명</h2>'
-  formScreen.appendChild(pad.el)
-  home.classList.remove('active'); formScreen.classList.add('active')
-  savebar.hidden = false; savebar.innerHTML = ''
-  const { el: btn, setState } = createSaveButton(async () => {
-    if (pad.isEmpty()) { alert('서명을 해주세요'); return }
-    setState('uploading')
-    const r = await applySignature(ids, 'sigConfirmer', pad.getPNG(), { getDoc, saveDoc, now })
-    if (r.failed.length) setState('error'); else { setState('done'); setTimeout(showHome, 700) }
-  })
-  savebar.appendChild(btn)
-}
-
-async function onComplete() {
-  const ids = [...home.querySelectorAll('#completeList .pick:checked')].map(c => c.closest('[data-id]').dataset.id)
-  if (!ids.length) { alert('완료할 문서를 선택하세요'); return }
-  if (!confirm(`선택한 ${ids.length}건을 완료하고 PDF를 생성합니다.`)) return
-  const r = await completeDocs(ids, { ...cdeps, online: online(), renderPdf })
-  if (r.failed.length) alert(`완료 실패 ${r.failed.length}건`)
-  if (r.queued.length) alert(`오프라인: ${r.queued.length}건은 연결 시 자동 전송됩니다`)
+// 상태 넘김/완료/되돌리기. 완료(done)면 PDF 생성(로컬모드는 다운로드).
+async function doAction(def, collect, doc, action) {
+  const v = collect()
+  const meta = buildDocMeta(def, v, cur.docId || doc?.docId, '0')
+  if (!meta.byBranch && !v.agency) { alert('대리점을 선택하세요'); return }
+  const built = buildDoc(def, v, doc)
+  built.status = nextStatus(built.status, action)
+  if (built.status === STATUS.DONE) {
+    try {
+      const bytes = await renderPdf(built)
+      built.pdfBase64 = bytesToBase64(bytes)
+      if (!APPS()) downloadPdf(bytes, built.fileName)
+    } catch { alert('PDF 생성 실패'); return }
+  }
+  const r = await persist(built)
+  if (r.conflict) { alert('다른 사람이 먼저 수정했습니다. 새로고침 후 다시 시도하세요.'); return }
   showHome()
 }
 
-async function flushQueue() {
-  if (!navigator.onLine) return
-  const pending = await listBySync('pending')
-  for (const d of pending) {
-    const env = { branch: d.branch, formId: d.formId, docId: d.docId, fileName: d.fileName, status: d.status, values: d.values, savedAt: d.savedAt, pdfBase64: d.pdfBase64 }
-    try { const r = await submit(env); if (r.ok) await setSync(d.docId, 'done') } catch {}
-  }
+// 아무 단계에서나 현재 값으로 PDF 저장/미리보기.
+async function doPdf(def, collect, doc) {
+  const built = buildDoc(def, collect(), doc)
+  downloadPdf(await renderPdf(built), built.fileName)
 }
-window.addEventListener('online', flushQueue)
+
+// 오프라인 중 쌓인 pending 문서를 연결 시 자동 업로드(공유모드에서만).
+async function flushQueue() {
+  if (!online() || !APPS()) return
+  await flushPending({
+    listPending: () => listBySync('pending'),
+    remoteSave: d => sharedSave(d, { url: APPS() }),
+    saveLocal: d => saveDoc(d),
+  })
+}
+// 재연결 시 pending 전송. 단, 편집 중(폼 화면)이면 홈으로 튕기지 않음(입력 유실 방지).
+window.addEventListener('online', () => { flushQueue().then(() => { if (home.classList.contains('active')) showHome() }) })
 
 backBtn.addEventListener('click', showHome)
 window.addEventListener('load', () => { if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(()=>{}) })

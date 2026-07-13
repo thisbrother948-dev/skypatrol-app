@@ -39,6 +39,9 @@ function all() {
     return box
   })
 }
+export async function listAll() {
+  return all()
+}
 export async function listByStatus(status) {
   return (await all()).filter(d => d.status === status)
 }
