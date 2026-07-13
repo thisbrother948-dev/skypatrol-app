@@ -5,7 +5,7 @@ export function createPhotoGrid(max, onChange) {
   const addLabel = document.createElement('label')
   addLabel.className = 'photo-slot photo-add'
   addLabel.innerHTML = `<span class="ico">📷</span><span>사진 추가</span>
-    <input type="file" accept="image/*" capture="environment" hidden>`
+    <input type="file" accept="image/*" hidden>`
   const input = addLabel.querySelector('input')
   input.addEventListener('change', () => {
     const f = input.files[0]; if (!f) return
