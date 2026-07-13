@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#0B3A6F">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icons/icon.svg">
+<script type="importmap">
+{ "imports": {
+  "pdf-lib": "./vendor/pdf-lib.esm.min.js",
+  "@pdf-lib/fontkit": "./vendor/fontkit.esm.min.js"
+} }
+</script>
+<title>SkyPatrol · 산업안전점검</title>
+<link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+<div class="topbar" id="topbar">
+  <button class="back" id="backBtn">‹</button>
+  <div class="title" id="topTitle">SkyPatrol</div>
+  <div class="branch-badge" id="branchBadge"></div>
+</div>
+<div class="screen active" id="screen-home"></div>
+<div class="screen" id="screen-form"></div>
+<div class="savebar" id="savebar" hidden></div>
+
+<script type="module">
+import { getConfig, resolveAgencyDefaults } from './js/config.js'
+import { renderHome } from './js/app.js'
+import { renderForm } from './js/form-renderer.js'
+import { saveDoc, getDoc, listByAgencyForm, listByForm, listOpen, listBySync, setSync } from './js/store.js'
+import { submit } from './js/backend.js'
+import { applySignature, completeDocs, revertToDraft } from './js/completion.js'
+import { nextRound, isDuplicate } from './js/naming.js'
+import { buildDocMeta } from './js/docname.js'
+import { createSaveButton } from './js/components/savebadge.js'
+import { createSignaturePad } from './js/components/signature.js'
+import { FORMS } from './forms/index.js'
+import { renderPdf as renderPdfCore } from './js/pdf-render.js'
+
+const home = document.getElementById('screen-home')
+const formScreen = document.getElementById('screen-form')
+const savebar = document.getElementById('savebar')
+const branchBadge = document.getElementById('branchBadge')
+const backBtn = document.getElementById('backBtn')
+const online = () => navigator.onLine
+const now = () => new Date().toISOString()
+const syncDep = async (id, s) => { const d = await getDoc(id); if (d) await saveDoc({ ...d, sync: s }) }
+const cdeps = { getDoc, saveDoc, submit, setSync: syncDep, online: online(), now }
+
+// 템플릿/폰트는 최초 1회 로드 후 캐시
+const _assets = {}
+async function loadAssets(formId) {
+  if (!_assets._font) _assets._font = new Uint8Array(await fetch('./fonts/NanumGothic-Regular.ttf').then(r => r.arrayBuffer()))
+  if (!_assets[formId]) _assets[formId] = new Uint8Array(await fetch(`./templates/${formId}.pdf`).then(r => r.arrayBuffer()))
+  return { templateBytes: _assets[formId], fontBytes: _assets._font }
+}
+function downloadPdf(bytes, fileName) {
+  const blob = new Blob([bytes], { type: 'application/pdf' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url; a.download = `${fileName || 'document'}.pdf`
+  document.body.appendChild(a); a.click(); a.remove()
+  setTimeout(() => URL.revokeObjectURL(url), 2000)
+}
+async function renderPdf(doc) {
+  const def = FORMS[doc.formId]
+  const { templateBytes, fontBytes } = await loadAssets(doc.formId)
+  const bytes = await renderPdfCore({ templateBytes, fontBytes, formId: doc.formId, def, values: doc.values })
+  // 드라이브 URL 미설정(목/로컬 모드)이면 완료 PDF를 기기로 다운로드해 바로 확인 가능하게.
+  // URL 설정 시(실드라이브)엔 다운로드하지 않음 — 서버 저장으로 대체.
+  if (!getConfig().APPS_SCRIPT_URL) downloadPdf(bytes, doc.fileName)
+  return bytes
+}
+
+function showHome() {
+  branchBadge.textContent = getConfig().branch
+  document.getElementById('topTitle').textContent = 'SkyPatrol'
+  backBtn.style.display = 'none'; savebar.hidden = true
+  home.classList.add('active'); formScreen.classList.remove('active')
+  renderHome(home).then(bindHome)
+}
+
+function bindHome() {
+  home.querySelectorAll('[data-open]').forEach(b => b.addEventListener('click', () => openForm(b.dataset.open)))
+  document.getElementById('batchSign')?.addEventListener('click', onBatchSign)
+  document.getElementById('batchComplete')?.addEventListener('click', onComplete)
+  home.querySelectorAll('.open-doc').forEach(s => {
+    const row = s.closest('[data-id]')
+    s.addEventListener('click', async () => {
+      const docId = row.dataset.id
+      if (row.hasAttribute('data-done')) {
+        if (!confirm('완료된 문서입니다. 수정하시겠어요? (완료 해제됩니다)')) return
+        await revertToDraft(docId, { getDoc, saveDoc, now })
+      }
+      openForm(null, docId)
+    })
+  })
+}
+
+async function openForm(formId, existingId) {
+  const doc = existingId ? await getDoc(existingId) : null
+  const def = FORMS[formId || doc?.formId]
+  if (!def) return
+  document.getElementById('topTitle').textContent = def.title
+  backBtn.style.display = 'flex'
+  home.classList.remove('active'); formScreen.classList.add('active')
+  const { el, collect } = renderForm(def, doc?.values || {}, { stage: 'input' })
+  formScreen.innerHTML = ''; formScreen.appendChild(el)
+  const agencySel = el.querySelector('[data-key="agency"] select')
+  const monthInp = el.querySelector('[data-key="month"] input')
+  const roundInp = el.querySelector('[data-key="round"] input')
+  if (agencySel && monthInp && roundInp) {
+    const suggestRound = async () => {
+      if (!agencySel.value) return
+      const docs = await listByAgencyForm(agencySel.value, def.id)
+      roundInp.value = nextRound(docs.filter(d => d.docId !== doc?.docId).map(d => d.values), Number(monthInp.value))
+    }
+    agencySel.addEventListener('change', suggestRound)
+    monthInp.addEventListener('change', suggestRound)
+  }
+  if (agencySel) {
+    agencySel.addEventListener('change', () => {
+      const defaults = resolveAgencyDefaults(def, agencySel.value)
+      for (const k in defaults) {
+        const inp = el.querySelector(`[data-key="${k}"] input`)
+        if (inp && defaults[k]) inp.value = defaults[k]
+      }
+    })
+  }
+  savebar.hidden = false; savebar.innerHTML = ''
+  const { el: btn, setState } = createSaveButton(() => onSave(def, collect, doc, setState))
+  savebar.appendChild(btn)
+}
+
+async function onSave(def, collect, existing, setState) {
+  const v = collect()
+  const yy = (v.inspectDate || new Date().toISOString().slice(0,10)).slice(0,4)
+  const meta = buildDocMeta(def, v, existing?.docId, yy)
+  if (!meta.byBranch && !v.agency) { alert('대리점을 선택하세요'); return }
+  const docs = meta.byBranch ? await listByForm(def.id) : await listByAgencyForm(v.agency, def.id)
+  const others = docs.filter(d => d.docId !== existing?.docId).map(d => d.values)
+  if (isDuplicate(others, v.month, v.round)) {
+    if (!confirm(`${v.month}월 ${v.round}차가 이미 있습니다. 덮어쓸까요?`)) return
+  }
+  setState('uploading')
+  const doc = {
+    docId: meta.docId, formId: def.id, branch: getConfig().branch, agency: meta.agency,
+    fileName: meta.fileName, status: 'draft', values: { ...(existing?.values || {}), ...v },
+    sync: existing?.sync || 'local', savedAt: now(),
+  }
+  await saveDoc(doc)
+  setState('done'); setTimeout(showHome, 700)
+}
+
+async function onBatchSign() {
+  const ids = [...home.querySelectorAll('#signList .pick:checked')].map(c => c.closest('[data-id]').dataset.id)
+  if (!ids.length) { alert('서명할 문서를 선택하세요'); return }
+  const pad = createSignaturePad()
+  document.getElementById('topTitle').textContent = '지사장 확인/승인 서명'
+  backBtn.style.display = 'flex'
+  formScreen.innerHTML = '<h2 style="padding:16px 16px 0">지사장 확인/승인 서명</h2>'
+  formScreen.appendChild(pad.el)
+  home.classList.remove('active'); formScreen.classList.add('active')
+  savebar.hidden = false; savebar.innerHTML = ''
+  const { el: btn, setState } = createSaveButton(async () => {
+    if (pad.isEmpty()) { alert('서명을 해주세요'); return }
+    setState('uploading')
+    const r = await applySignature(ids, 'sigConfirmer', pad.getPNG(), { getDoc, saveDoc, now })
+    if (r.failed.length) setState('error'); else { setState('done'); setTimeout(showHome, 700) }
+  })
+  savebar.appendChild(btn)
+}
+
+async function onComplete() {
+  const ids = [...home.querySelectorAll('#completeList .pick:checked')].map(c => c.closest('[data-id]').dataset.id)
+  if (!ids.length) { alert('완료할 문서를 선택하세요'); return }
+  if (!confirm(`선택한 ${ids.length}건을 완료하고 PDF를 생성합니다.`)) return
+  const r = await completeDocs(ids, { ...cdeps, online: online(), renderPdf })
+  if (r.failed.length) alert(`완료 실패 ${r.failed.length}건`)
+  if (r.queued.length) alert(`오프라인: ${r.queued.length}건은 연결 시 자동 전송됩니다`)
+  showHome()
+}
+
+async function flushQueue() {
+  if (!navigator.onLine) return
+  const pending = await listBySync('pending')
+  for (const d of pending) {
+    const env = { branch: d.branch, formId: d.formId, docId: d.docId, fileName: d.fileName, status: d.status, values: d.values, savedAt: d.savedAt, pdfBase64: d.pdfBase64 }
+    try { const r = await submit(env); if (r.ok) await setSync(d.docId, 'done') } catch {}
+  }
+}
+window.addEventListener('online', flushQueue)
+
+backBtn.addEventListener('click', showHome)
+window.addEventListener('load', () => { if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(()=>{}) })
+showHome()
+flushQueue()
+</script>
+</body>
+</html>

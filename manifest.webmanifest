@@ -1,0 +1,11 @@
+{
+  "name": "SkyPatrol 산업안전점검",
+  "short_name": "SkyPatrol",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#EEF2F6",
+  "theme_color": "#0B3A6F",
+  "icons": [
+    { "src": "icons/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}
