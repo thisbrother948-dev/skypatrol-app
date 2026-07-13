@@ -236,7 +236,7 @@ function buildChecklist(sheet, secTitle, rows, curItems, g) {
   leg.textContent = '※ 범례(판정) : 적합(○), 미흡(△), 부적합(✕), 해당없음(−) · 점검결과 셀을 탭하여 선택'
   sheet.appendChild(leg)
   const tbl = document.createElement('table'); sheet.appendChild(tbl)
-  tbl.innerHTML = '<colgroup><col style="width:26px"><col><col style="width:46px"><col style="width:92px"></colgroup>'
+  tbl.innerHTML = '<colgroup><col style="width:8%"><col style="width:54%"><col style="width:13%"><col style="width:25%"></colgroup>'
   const h = tbl.insertRow(); h.className = 'clh'
   h.innerHTML = `<td>구분</td><td>점검 항목</td><td>점검<br>결과</td><td>조치 사항</td>`
   const byNo = new Map((curItems || []).map(i => [i.no, i]))
@@ -308,7 +308,7 @@ function attendeeCells(f, v, g, opts = {}) {
 }
 
 function attendeeHead(tbl, secTitle) {
-  tbl.innerHTML = '<colgroup><col style="width:52px"><col style="width:40px"><col><col style="width:52px"><col style="width:40px"><col></colgroup>'
+  tbl.innerHTML = '<colgroup><col style="width:16%"><col style="width:12%"><col style="width:22%"><col style="width:16%"><col style="width:12%"><col style="width:22%"></colgroup>'
   if (secTitle) tbl.insertRow().innerHTML = `<td class="sec" colspan="6">${secTitle}</td>`
   tbl.insertRow().innerHTML = `<td class="sub" colspan="3">도급인</td><td class="sub" colspan="3">수급인</td>`
   tbl.insertRow().innerHTML = `<td class="clh2">소속</td><td class="clh2">직위</td><td class="clh2">성함(서명)</td><td class="clh2">소속</td><td class="clh2">직위</td><td class="clh2">성함(서명)</td>`
@@ -428,16 +428,16 @@ SHEETS.hoeuirok = (def, v, g, root) => {
 
 const SHEET_CSS = `
 .sheet-wrap{padding:8px 8px 12px;}
-.sheet-meta{display:flex;gap:14px;align-items:center;max-width:560px;margin:0 auto 8px;font-size:12px;color:#5b6470;background:#eef1f5;border-radius:8px;padding:7px 12px;}
+.sheet-meta{display:flex;gap:14px;align-items:center;width:100%;max-width:min(96vw,820px);margin:0 auto 8px;font-size:12px;color:#5b6470;background:#eef1f5;border-radius:8px;padding:7px 12px;}
 .sheet-meta .mlabel{font-weight:700;color:#3a434d;}
 .sheet-meta input{width:46px;border:1px solid #b9c1cc;border-radius:6px;padding:3px 5px;font-size:12px;margin-left:3px;}
-.sheet{max-width:560px;margin:0 auto;background:#fff;border:1.5px solid #2b3440;box-shadow:0 4px 18px rgba(20,40,60,.14);}
+.sheet{width:100%;max-width:min(96vw,820px);margin:0 auto;background:#fff;border:1.5px solid #2b3440;box-shadow:0 4px 18px rgba(20,40,60,.14);}
 .sheet table{width:100%;border-collapse:collapse;table-layout:fixed;}
 .sheet td,.sheet th{border:1px solid #8a94a0;padding:5px 6px;font-size:12px;line-height:1.4;vertical-align:middle;word-break:break-word;letter-spacing:-.3px;}
 .titlebar{display:flex;border-bottom:1.5px solid #2b3440;}
 .titlebar .t{flex:1;display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:800;letter-spacing:-.5px;padding:12px 6px;text-align:center;}
-.gyeoljae{border-left:1px solid #8a94a0;}
-.gyeoljae table{width:150px;}
+.gyeoljae{border-left:1px solid #8a94a0;flex:0 0 42%;max-width:170px;}
+.gyeoljae table{width:100%;}
 .gyeoljae td{text-align:center;padding:0;}
 .gyeoljae .gj{writing-mode:vertical-rl;background:#eef1f5;font-size:10.5px;font-weight:700;width:20px;letter-spacing:2px;}
 .gyeoljae .lab{background:#eef1f5;font-size:10.5px;font-weight:700;padding:4px 2px;}
@@ -445,7 +445,7 @@ const SHEET_CSS = `
 .signcell.ph{color:#aeb6c0;}
 .signcell img{max-width:100%;max-height:40px;display:block;margin:0 auto;}
 .signcell .signname{font-size:10px;color:#333;}
-.lb{background:#eef1f5;font-weight:700;text-align:center;font-size:11.5px;width:76px;}
+.lb{background:#eef1f5;font-weight:700;text-align:center;font-size:11.5px;width:20%;}
 .val{cursor:text;min-height:30px;}
 .val:empty:before{content:attr(data-ph);color:#b0b8c2;font-weight:400;}
 .val:focus{outline:2px solid #1565C0;outline-offset:-2px;background:#E8F1FB;}
@@ -501,4 +501,21 @@ const SHEET_CSS = `
 .sm-btns button{flex:1;border-radius:11px;padding:13px;font-size:14px;font-weight:700;cursor:pointer;border:none;}
 .sm-clear{background:#eef1f5;color:#5b6470;flex:0 0 90px;}
 .sm-ok{background:#1565C0;color:#fff;}
+/* 화면이 넓으면(태블릿/PC) 글자·여백을 키워 시원하게 */
+@media (min-width:600px){
+  .sheet td,.sheet th{font-size:13.5px;padding:7px 9px;}
+  .titlebar .t{font-size:20px;}
+  .lb,.clh td,.clh2,.sub{font-size:13px;}
+  .qcell{font-size:13px;}
+  .res{font-size:19px;}
+  .sheet-meta{font-size:13px;}
+}
+@media (min-width:820px){
+  .sheet td,.sheet th{font-size:14.5px;}
+  .titlebar .t{font-size:22px;}
+}
+/* 아주 좁은 폰에서도 넘치지 않게 */
+@media (max-width:360px){
+  .sheet td,.sheet th{font-size:11px;padding:4px 4px;}
+}
 `
