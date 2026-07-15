@@ -81,6 +81,19 @@ function editCell(val, ph, cls = '') {
   if (val) td.textContent = val
   return td
 }
+// 날짜 셀: 탭하면 기기 달력에서 고르는 <input type=date>. 기본값=오늘, 자유 변경.
+// value는 항상 YYYY-MM-DD(PDF 렌더가 기대하는 형식). td.getValue()로 읽는다.
+function dateCell(val) {
+  const td = document.createElement('td')
+  td.className = 'val datecell'
+  const inp = document.createElement('input')
+  inp.type = 'date'
+  inp.className = 'datein'
+  inp.value = val || new Date().toISOString().slice(0, 10)
+  td.appendChild(inp)
+  td.getValue = () => inp.value
+  return td
+}
 function judgeCell(mark) {
   const td = document.createElement('td')
   const j = JUDGE.find(x => x.m === mark)
@@ -184,8 +197,8 @@ SHEETS.sunhoe = (def, v, g, root) => {
   const info = document.createElement('table'); sheet.appendChild(info)
   const r1 = info.insertRow()
   r1.innerHTML = `<td class="lb">점검일</td>`
-  const dateTd = editCell(v.inspectDate || new Date().toISOString().slice(0, 10), 'YYYY-MM-DD'); r1.appendChild(dateTd)
-  g.inspectDate = () => dateTd.textContent.trim()
+  const dateTd = dateCell(v.inspectDate); r1.appendChild(dateTd)
+  g.inspectDate = () => dateTd.getValue()
   r1.insertAdjacentHTML('beforeend', `<td class="lb">점검자</td>`)
   const inspNameTd = editCell(v.inspector || '', '이름'); r1.appendChild(inspNameTd)
   g.inspector = () => inspNameTd.textContent.trim()
@@ -339,7 +352,7 @@ SHEETS.hapdong = (def, v, g, root) => {
   // 기본정보
   const info = document.createElement('table'); sheet.appendChild(info)
   const r1 = info.insertRow(); r1.innerHTML = `<td class="lb">점검일</td>`
-  const dt = editCell(v.inspectDate || new Date().toISOString().slice(0, 10), 'YYYY-MM-DD'); r1.appendChild(dt); g.inspectDate = () => dt.textContent.trim()
+  const dt = dateCell(v.inspectDate); r1.appendChild(dt); g.inspectDate = () => dt.getValue()
   r1.insertAdjacentHTML('beforeend', `<td class="lb">점검장소</td>`)
   const pl = editCell(v.place || '', '현장/장소'); r1.appendChild(pl); g.place = () => pl.textContent.trim()
 
@@ -451,6 +464,9 @@ const SHEET_CSS = `
 .val:empty:before{content:attr(data-ph);color:#b0b8c2;font-weight:400;}
 .val:focus{outline:2px solid #1565C0;outline-offset:-2px;background:#E8F1FB;}
 .val select{width:100%;border:none;background:transparent;font-size:12px;font-family:inherit;padding:2px;}
+.datecell{padding:0;}
+.datein{width:100%;border:none;background:transparent;font-size:12px;font-family:inherit;text-align:center;padding:6px 2px;cursor:pointer;color:inherit;-webkit-appearance:none;appearance:none;}
+.datein:focus{outline:2px solid #1565C0;outline-offset:-2px;background:#E8F1FB;}
 .chkcell{text-align:center;}
 .chk{display:inline-block;padding:3px 5px;cursor:pointer;font-size:12px;user-select:none;}
 .chk.on{color:#1565C0;font-weight:800;}

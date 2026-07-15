@@ -22,7 +22,7 @@ export default {
     { key: 'meetingDate', type: 'text', label: '일시', cell: 'B4:E4' },
     { key: 'meetingType', type: 'choice', label: '회의방식', options: ['대면', '화상'], cell: 'G4:J4',
       // 원본 템플릿의 각 옵션 □ 위치(pdf-lib 좌하단 원점, pdfplumber 추출). 선택 옵션에 체크 표시.
-      optionMarks: { '대면': [333.4, 730.4], '화상': [524.3, 730.4] } },
+      optionMarks: { '대면': [368.6, 730.7], '화상': [495.1, 730.7] } },
     { key: 'month', type: 'month', label: '월', default: 'currentMonth' },
     { key: 'round', type: 'round', label: '차수', default: 'autoNext' },
     { key: 'sigManager', type: 'signature', label: '담당 서명', cell: 'I2:I3' },

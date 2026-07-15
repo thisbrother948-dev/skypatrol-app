@@ -80,10 +80,18 @@ function drawTextInRect(page, font, text, rect, opts = {}) {
   if (top > maxTop) top = maxTop
   if (top - blockH < minBottom) top = Math.min(maxTop, minBottom + blockH)
 
+  // 원본 엑셀 셀은 대부분 가운데 정렬 → 기본 center로 원본 재현. opts.align으로 개별 override.
+  const align = opts.align || 'center'
   let baseline = top - size * 0.9
   for (const line of lines) {
     if (line !== '') {
-      page.drawText(line, { x: rect.x + pad, y: baseline, size, font, color: BLACK })
+      let x = rect.x + pad
+      if (align === 'center') {
+        x = rect.x + (rect.w - font.widthOfTextAtSize(line, size)) / 2
+      } else if (align === 'right') {
+        x = rect.x + rect.w - pad - font.widthOfTextAtSize(line, size)
+      }
+      page.drawText(line, { x, y: baseline, size, font, color: BLACK })
     }
     baseline -= lineH
   }
@@ -183,7 +191,7 @@ export async function renderPdf({ templateBytes, fontBytes, formId, def, values 
           const item = byNo.get(row.no)
           if (!item) continue
           if (row.labelCell && item.label) drawTextInRect(page, font, item.label, rect(row.labelCell))
-          if (row.markCell && item.mark) drawTextInRect(page, font, safeMark(item.mark), rect(row.markCell))
+          if (row.markCell && item.mark) drawTextInRect(page, font, safeMark(item.mark), rect(row.markCell), { align: 'center' })
           if (row.actionCell && item.action) drawTextInRect(page, font, item.action, rect(row.actionCell))
         }
         break

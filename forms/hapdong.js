@@ -12,7 +12,7 @@ const rows = ITEMS.map(([group, label], i) => {
   const r = 14 + i
   return { no: i + 1, group, label, markCell: `F${r}`, actionCell: `G${r}:J${r}` }
 })
-rows.push({ no: 8, group: '기타', label: '', freeLabel: true, labelCell: 'B21', markCell: 'F21', actionCell: 'G21:J21' })
+rows.push({ no: 8, group: '기타', label: '', freeLabel: true, labelCell: 'B21:E21', markCell: 'F21', actionCell: 'G21:J21' })
 
 export default {
   id: 'hapdong',

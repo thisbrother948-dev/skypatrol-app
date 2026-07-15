@@ -25,7 +25,7 @@ const rows = []
   const r = 11 + i
   rows.push({ no: i + 1, group, label, markCell: `F${r}`, actionCell: `G${r}:J${r}` })
 })
-rows.push({ no: 18, group: '기타', label: '', freeLabel: true, labelCell: 'B28', markCell: 'F28', actionCell: 'G28:J28' })
+rows.push({ no: 18, group: '기타', label: '', freeLabel: true, labelCell: 'B28:E28', markCell: 'F28', actionCell: 'G28:J28' })
 
 export default {
   id: 'sunhoe',
@@ -43,8 +43,8 @@ export default {
     { key: 'workContent', type: 'text', label: '작업내용', cell: 'B6:E6' },
     { key: 'workType', type: 'choice', label: '작업유형', options: ['설치', 'A/S', '기타'], cell: 'G6:J6',
       // 원본 템플릿의 각 옵션 □ 위치(pdf-lib 좌하단 원점, pdfplumber 추출). 선택 옵션에 체크 표시.
-      optionMarks: { '설치': [338.9, 669.4], 'A/S': [414.4, 669.4], '기타': [485.5, 669.4] } },
-    { key: 'purpose', type: 'text', label: '점검목적', cell: 'B7' },
+      optionMarks: { '설치': [379.5, 669.6], 'A/S': [432.3, 669.6], '기타': [483.0, 669.6] } },
+    { key: 'purpose', type: 'text', label: '점검목적', cell: 'B7:J7' },
     { key: 'items', type: 'checklist', rows },
     { key: 'summary', type: 'textarea', label: '종합 의견 및 개선사항', cell: 'A31:J32' },
     { key: 'photos', type: 'photos', label: '점검 사진', max: 4, cells: ['A34:B35', 'C34:E35', 'F34:H35', 'I34:J35'] },

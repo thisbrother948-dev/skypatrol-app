@@ -42,12 +42,47 @@ export function rawRect(formId, ref) {
   return { x, y, w: xEnd - x, h: yEnd - y }
 }
 
+// X 보정(2026-07-15): 행(y) 매핑은 정확하나, 근사 열폭(grid-dims)+단일 아핀(CALIB.sx)이
+// 실제 열경계와 비선형으로 어긋나(누적 드리프트, 최대 ~34pt) 긴 값이 옆칸을 침범했다.
+// 각 knot=[계산x, 실측x] 사이를 구간선형 보간해 x를 실제 열경계에 스냅한다.
+// 값은 pdfplumber로 각 템플릿 격자선 실측(seal 블록 제외). y는 그대로 둔다.
+const X_KNOTS = {
+  sunhoe:   [[18.1, 18], [106.7, 85], [157.9, 151], [315.8, 297], [367, 364], [436.3, 443], [576.1, 576]],
+  hapdong:  [[18.1, 18], [106.7, 85], [157.9, 151], [176.1, 165], [315.8, 297], [367, 364], [436.3, 443], [576.1, 576]],
+  hoeuirok: [[17, 17], [105.6, 84], [175, 164], [263.6, 230], [314.7, 296], [365.9, 363], [417, 428], [435.2, 442], [575, 575]],
+}
+// 결재(seal) 블록은 본문과 별개의 하위 열그리드라 메인 remap이 안 맞는다. 서명칸의
+// X는 seal 하위칸 실측값으로 직접 지정(x, w). y는 계산값(행 매핑 정확) 유지.
+const SEAL_X = {
+  sunhoe:   { 'I2:I3': [443.2, 66.2], 'J2:J3': [509.4, 66.3] },
+  hapdong:  { 'I2:I3': [443.2, 66.2], 'J2:J3': [509.4, 66.3] },
+  hoeuirok: { 'I2:I3': [442.1, 66.2], 'J2:J3': [508.3, 66.3] },
+}
+
+function remapX(formId, x) {
+  const k = X_KNOTS[formId]
+  if (!k) return x
+  if (x <= k[0][0]) return k[0][1] + (x - k[0][0])            // 첫 knot 이전: 오프셋 유지
+  for (let i = 0; i < k.length - 1; i++) {
+    const [c0, a0] = k[i], [c1, a1] = k[i + 1]
+    if (x <= c1) return a0 + (a1 - a0) * (x - c0) / (c1 - c0) // 구간 선형보간
+  }
+  const last = k[k.length - 1]
+  return last[1] + (x - last[0])                             // 마지막 knot 이후
+}
+
 export function cellRect(formId, ref, pageHeight) {
   const { ox, oy, sx, sy } = CALIB[formId]
   const r = rawRect(formId, ref)
-  const x = ox + r.x * sx
-  const w = r.w * sx
+  let x = ox + r.x * sx
+  let xEnd = x + r.w * sx
+  const seal = SEAL_X[formId] && SEAL_X[formId][ref]
+  if (seal) {
+    x = seal[0]; xEnd = seal[0] + seal[1]                     // seal 명시좌표(X만)
+  } else {
+    x = remapX(formId, x); xEnd = remapX(formId, xEnd)        // 본문 x remap
+  }
   const top = oy + r.y * sy
   const h = r.h * sy
-  return { x, y: pageHeight - (top + h), w, h }  // pdf-lib: 좌하단 원점
+  return { x, y: pageHeight - (top + h), w: xEnd - x, h }     // pdf-lib: 좌하단 원점
 }
