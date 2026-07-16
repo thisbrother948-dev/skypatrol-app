@@ -269,6 +269,8 @@ async function flushQueue() {
 // 재연결 시 pending 전송. 단, 편집 중(폼 화면)이면 홈으로 튕기지 않음(입력 유실 방지).
 window.addEventListener('online', () => { flushQueue().then(() => { if (home.classList.contains('active')) showHome() }) })
 
+// 해시(#지사)만 바꾸면 브라우저가 새로고침을 안 하므로, 지사 링크로 바뀌면 리로드해 boot()이 다시 적용하게 함.
+window.addEventListener('hashchange', () => { if (resolveBranchLink(location.hash, BRANCH_LINKS)) location.reload() })
 backBtn.addEventListener('click', showHome)
 window.addEventListener('load', () => { if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(()=>{}) })
 
