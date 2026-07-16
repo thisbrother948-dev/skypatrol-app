@@ -269,6 +269,9 @@ async function flushQueue() {
 // 재연결 시 pending 전송. 단, 편집 중(폼 화면)이면 홈으로 튕기지 않음(입력 유실 방지).
 window.addEventListener('online', () => { flushQueue().then(() => { if (home.classList.contains('active')) showHome() }) })
 
+// 날짜 필드를 탭하면 네이티브 달력이 뜨는데, 일부 기기에서 하단 바가 그 위를 덮으므로 포커스 동안 바를 숨김.
+formScreen.addEventListener('focusin', e => { if (e.target.matches('input[type="date"]')) savebar.classList.add('kb-hide') })
+formScreen.addEventListener('focusout', e => { if (e.target.matches('input[type="date"]')) savebar.classList.remove('kb-hide') })
 backBtn.addEventListener('click', showHome)
 window.addEventListener('load', () => { if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(()=>{}) })
 

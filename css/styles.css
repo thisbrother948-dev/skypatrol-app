@@ -19,7 +19,7 @@
 }
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
 html,body{margin:0;padding:0;background:var(--bg);color:var(--ink);}
-body{max-width:720px;margin:0 auto;min-height:100vh;position:relative;padding-bottom:96px;}
+body{max-width:720px;margin:0 auto;min-height:100vh;position:relative;padding-bottom:160px;}
 
 /* 상단 바 */
 .topbar{position:sticky;top:0;z-index:20;background:var(--navy);color:#fff;padding:14px 16px;display:flex;align-items:center;gap:10px;box-shadow:0 2px 8px rgba(11,58,111,.25);}
@@ -139,6 +139,7 @@ textarea{resize:vertical;min-height:56px;line-height:1.5;}
 /* 공유 워크플로우: 상태 액션 버튼 · 동기화 배지 */
 .savebar{display:flex;flex-wrap:wrap;gap:8px;}
 .savebar[hidden]{display:none;}
+.savebar.kb-hide{display:none;}  /* 날짜 달력 등 네이티브 팝업이 뜰 때 하단 바가 가리지 않도록 잠시 숨김 */
 .savebar .save-btn{flex:1 1 100%;}
 .act-btn{flex:1 1 40%;border:none;border-radius:13px;padding:15px;font-size:15px;font-weight:800;cursor:pointer;box-shadow:0 3px 12px rgba(21,101,192,.2);}
 .act-btn.go{background:#0d3f7a;color:#fff;}
