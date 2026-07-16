@@ -139,7 +139,7 @@ function gyeoljaeBox(labA, labB, holderA, holderB, roleA, roleB) {
   const t = document.createElement('table'); gj.appendChild(t)
   const r1 = t.insertRow()
   // 결재를 두 행에 걸쳐(rowspan) 세로 가운데 오게. (기존엔 헤더행에만 있어 위로 붙었음)
-  r1.innerHTML = `<td class="gj" rowspan="2">결재</td><td class="lab">${labA}</td><td class="lab">${labB}</td>`
+  r1.innerHTML = `<td class="gj" rowspan="2"><span class="gjtxt">결재</span></td><td class="lab">${labA}</td><td class="lab">${labB}</td>`
   const r2 = t.insertRow()
   r2.appendChild(signCell(roleA, holderA, true))
   r2.appendChild(signCell(roleB, holderB, true))
@@ -462,7 +462,8 @@ const SHEET_CSS = `
 .gyeoljae{border-left:1px solid #8a94a0;flex:0 0 150px;}
 .gyeoljae table{width:100%;}
 .gyeoljae td{text-align:center;padding:0;}
-.gyeoljae .gj{writing-mode:vertical-rl;background:#eef1f5;font-size:10.5px;font-weight:700;width:20px;letter-spacing:2px;}
+.gyeoljae .gj{background:#eef1f5;font-size:10.5px;font-weight:700;width:20px;text-align:center;vertical-align:middle;}
+.gyeoljae .gjtxt{writing-mode:vertical-rl;letter-spacing:2px;display:inline-block;}
 .gyeoljae .lab{background:#eef1f5;font-size:10.5px;font-weight:700;padding:4px 2px;}
 .gj-b{background:#f6f8fa;}
 .signcell{height:46px;cursor:pointer;position:relative;font-size:10px;color:#aeb6c0;}
