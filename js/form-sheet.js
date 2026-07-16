@@ -536,7 +536,8 @@ const SHEET_CSS = `
 /* 화면이 넓으면(태블릿/PC) 글자·여백을 키워 시원하게 */
 @media (min-width:600px){
   .sheet td,.sheet th{font-size:13.5px;padding:7px 9px;}
-  .titlebar .t{font-size:20px;}
+  /* 넓은 화면: 제목이 결재박스(150px) 뺀 왼쪽 영역에만 중앙정렬돼 왼쪽으로 치우쳐 보임 → 박스 폭만큼 좌측 여백 줘 전체 중앙에 오게 */
+  .titlebar .t{font-size:20px;padding-left:156px;}
   .lb,.clh td,.clh2,.sub{font-size:13px;}
   .qcell{font-size:13px;}
   .res{font-size:19px;}
