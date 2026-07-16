@@ -138,10 +138,9 @@ function gyeoljaeBox(labA, labB, holderA, holderB, roleA, roleB) {
   const gj = document.createElement('div'); gj.className = 'gyeoljae'
   const t = document.createElement('table'); gj.appendChild(t)
   const r1 = t.insertRow()
-  r1.innerHTML = `<td class="gj">결재</td><td class="lab">${labA}</td><td class="lab">${labB}</td>`
+  // 결재를 두 행에 걸쳐(rowspan) 세로 가운데 오게. (기존엔 헤더행에만 있어 위로 붙었음)
+  r1.innerHTML = `<td class="gj" rowspan="2">결재</td><td class="lab">${labA}</td><td class="lab">${labB}</td>`
   const r2 = t.insertRow()
-  const blank = document.createElement('td'); blank.className = 'gj-b'
-  r2.appendChild(blank)
   r2.appendChild(signCell(roleA, holderA, true))
   r2.appendChild(signCell(roleB, holderB, true))
   return gj
@@ -534,10 +533,6 @@ const SHEET_CSS = `
 .sm-clear{background:#eef1f5;color:#5b6470;flex:0 0 90px;}
 .sm-ok{background:#1565C0;color:#fff;}
 /* 화면이 넓으면(태블릿/PC) 글자·여백을 키워 시원하게 */
-/* 화면이 어느 정도 넓으면 제목이 결재박스(150px) 뺀 왼쪽 영역에만 중앙정렬돼 좌측으로 치우침 → 박스 폭만큼 좌측여백 줘 전체 중앙에. (작은 폰은 공간이 없어 제외) */
-@media (min-width:500px){
-  .titlebar .t{padding-left:156px;}
-}
 @media (min-width:600px){
   .sheet td,.sheet th{font-size:13.5px;padding:7px 9px;}
   .titlebar .t{font-size:20px;}
