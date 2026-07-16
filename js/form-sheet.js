@@ -462,7 +462,7 @@ const SHEET_CSS = `
 .gyeoljae{border-left:1px solid #8a94a0;flex:0 0 150px;}
 .gyeoljae table{width:100%;}
 .gyeoljae td{text-align:center;padding:0;}
-.gyeoljae .gj{background:#eef1f5;font-size:10.5px;font-weight:700;width:20px;text-align:center;vertical-align:middle;}
+.gyeoljae .gj{background:#eef1f5;font-size:10.5px;font-weight:700;width:20px;text-align:center;vertical-align:middle;padding:0;}
 .gyeoljae .gjtxt{writing-mode:vertical-rl;letter-spacing:2px;display:inline-block;}
 .gyeoljae .lab{background:#eef1f5;font-size:10.5px;font-weight:700;padding:4px 2px;}
 .gj-b{background:#f6f8fa;}
