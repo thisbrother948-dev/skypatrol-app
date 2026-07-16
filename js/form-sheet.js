@@ -86,13 +86,22 @@ function editCell(val, ph, cls = '') {
 function dateCell(val) {
   const td = document.createElement('td')
   td.className = 'val datecell'
+  // 네이티브 날짜 표시는 기기 로케일이라 좁은 칸에서 잘림 → 투명 input(달력만 담당) 위에
+  // 우리가 그린 짧은 텍스트(YYYY-MM-DD)를 덮어 항상 안 잘리게 한다.
+  const wrap = document.createElement('div')
+  wrap.className = 'datewrap'
   const inp = document.createElement('input')
   inp.type = 'date'
   inp.className = 'datein'
   inp.value = val || new Date().toISOString().slice(0, 10)
-  // 달력 아이콘을 숨겨(CSS) 좁은 칸에서 날짜가 안 잘리게 함. 탭하면 열리도록 showPicker 보강.
+  const label = document.createElement('span')
+  label.className = 'datetext'
+  label.textContent = inp.value
+  inp.addEventListener('change', () => { label.textContent = inp.value })
   inp.addEventListener('click', () => { if (inp.showPicker) { try { inp.showPicker() } catch {} } })
-  td.appendChild(inp)
+  wrap.appendChild(inp)
+  wrap.appendChild(label)
+  td.appendChild(wrap)
   td.getValue = () => inp.value
   return td
 }
@@ -467,9 +476,11 @@ const SHEET_CSS = `
 .val:focus{outline:2px solid #1565C0;outline-offset:-2px;background:#E8F1FB;}
 .val select{width:100%;border:none;background:transparent;font-size:12px;font-family:inherit;padding:2px;}
 .datecell{padding:0;}
-.datein{width:100%;border:none;background:transparent;font-size:12px;font-family:inherit;text-align:center;padding:6px 2px;cursor:pointer;color:inherit;-webkit-appearance:none;appearance:none;}
-.datein:focus{outline:2px solid #1565C0;outline-offset:-2px;background:#E8F1FB;}
+.datewrap{position:relative;width:100%;min-height:30px;}
+.datein{position:absolute;inset:0;width:100%;height:100%;border:none;background:transparent;opacity:0;cursor:pointer;-webkit-appearance:none;appearance:none;}
 .datein::-webkit-calendar-picker-indicator{display:none;}
+.datetext{display:flex;align-items:center;justify-content:center;min-height:30px;padding:6px 2px;font-size:12px;font-family:inherit;color:inherit;white-space:nowrap;pointer-events:none;}
+.datewrap:focus-within{outline:2px solid #1565C0;outline-offset:-2px;background:#E8F1FB;}
 .chkcell{text-align:center;}
 .chk{display:inline-block;padding:3px 5px;cursor:pointer;font-size:12px;user-select:none;}
 .chk.on{color:#1565C0;font-weight:800;}
