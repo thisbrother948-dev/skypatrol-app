@@ -1,4 +1,5 @@
 import { BRANCHES } from '../config/branches.js'
+import { rosterFromCache } from './roster.js'
 
 const KEY = 'skypatrol.config'
 
@@ -25,6 +26,16 @@ export function setConfig(partial) {
 
 export function getMeta() {
   const c = getConfig()
+  const cached = rosterFromCache()
+  if (c.APPS_SCRIPT_URL && cached && cached.branch) {
+    return {
+      branch: cached.branch,
+      agencies: cached.agencies || [],
+      manager: cached.manager || '',
+      safetyLead: cached.safetyLead || '',
+      staff: cached.staff || [],
+    }
+  }
   const m = BRANCHES[c.branch]
   if (!m) return { branch: c.branch, agencies: (c.agencies || []).map(n => ({ name: n })), manager: '', safetyLead: '', staff: [] }
   return { branch: c.branch, agencies: m.agencies || [], manager: m.manager || '', safetyLead: m.safetyLead || '', staff: m.staff || [] }

@@ -17,3 +17,8 @@ const QUEUE = { [STATUS.CONFIRM]: 'confirm', [STATUS.APPROVE]: 'approve', [STATU
 export function queueOf(doc) {
   return QUEUE[doc && doc.status] || 'draft'
 }
+
+// 서명이 모두 끝난 단계에서만 공식 PDF 저장(다운로드)이 의미 있다.
+export function canSaveFinalPdf(status) {
+  return status === STATUS.APPROVE || status === STATUS.DONE
+}

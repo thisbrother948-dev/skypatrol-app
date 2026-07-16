@@ -25,6 +25,9 @@ function tx(mode, fn) {
 export function saveDoc(doc) {
   return tx('readwrite', store => { store.put(doc); return { _result: doc } })
 }
+export function deleteDoc(docId) {
+  return tx('readwrite', store => { store.delete(docId); return { _result: docId } })
+}
 export function getDoc(docId) {
   return tx('readonly', store => {
     const box = {}

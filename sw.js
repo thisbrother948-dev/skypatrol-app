@@ -1,8 +1,10 @@
-const CACHE = 'skypatrol-v4'
+const CACHE = 'skypatrol-v5'
 const ASSETS = [
   './index.html', './css/styles.css',
   './js/app.js', './js/config.js', './js/store.js', './js/naming.js', './js/docname.js',
-  './js/backend.js', './js/form-sheet.js', './js/form-renderer.js', './js/completion.js', './config/branches.js',
+  './js/backend.js', './js/form-sheet.js', './js/form-renderer.js', './js/completion.js',
+  './js/docstatus.js', './js/sharedstore.js', './js/roster.js', './js/retention.js', './js/branchlink.js',
+  './config/branches.js', './config/branch-links.js',
   './js/components/mark.js', './js/components/photo.js',
   './js/components/savebadge.js', './js/components/signature.js',
   './forms/index.js', './forms/sunhoe.js', './forms/hapdong.js', './forms/hoeuirok.js',

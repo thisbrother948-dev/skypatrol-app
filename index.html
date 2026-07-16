@@ -26,18 +26,22 @@
 <div class="savebar" id="savebar" hidden></div>
 
 <script type="module">
-import { getConfig, resolveAgencyDefaults } from './js/config.js'
+import { getConfig, setConfig, resolveAgencyDefaults } from './js/config.js'
+import { resolveBranchLink } from './js/branchlink.js'
+import { BRANCH_LINKS } from './config/branch-links.js'
 import { renderHome } from './js/app.js'
 import { renderForm } from './js/form-sheet.js'
-import { saveDoc, getDoc, listByAgencyForm, listAll, listBySync } from './js/store.js'
+import { saveDoc, getDoc, listByAgencyForm, listAll, listBySync, deleteDoc } from './js/store.js'
 import { syncSave, flushPending } from './js/backend.js'
 import { list as sharedList, getDoc as sharedGet, saveDoc as sharedSave } from './js/sharedstore.js'
-import { nextStatus, STATUS } from './js/docstatus.js'
+import { nextStatus, STATUS, canSaveFinalPdf } from './js/docstatus.js'
 import { nextRound } from './js/naming.js'
 import { buildDocMeta } from './js/docname.js'
 import { createSaveButton } from './js/components/savebadge.js'
 import { FORMS } from './forms/index.js'
 import { renderPdf as renderPdfCore } from './js/pdf-render.js'
+import { loadRoster } from './js/roster.js'
+import { expiredDocIds } from './js/retention.js'
 
 const home = document.getElementById('screen-home')
 const formScreen = document.getElementById('screen-form')
@@ -180,10 +184,16 @@ function buildSavebar(def, collect, doc) {
     b.addEventListener('click', () => doAction(def, collect, doc, act.action))
     savebar.appendChild(b)
   }
-  const pdfB = document.createElement('button')
-  pdfB.type = 'button'; pdfB.className = 'act-btn pdf'; pdfB.textContent = 'PDF 저장'
-  pdfB.addEventListener('click', () => doPdf(def, collect, doc))
-  savebar.appendChild(pdfB)
+  const viewBtn = document.createElement('button')
+  viewBtn.type = 'button'; viewBtn.className = 'act-btn pdf'; viewBtn.textContent = '뷰어'
+  viewBtn.addEventListener('click', () => viewPdf(def, collect, doc))
+  savebar.appendChild(viewBtn)
+  if (canSaveFinalPdf(cur.status)) {
+    const saveBtn = document.createElement('button')
+    saveBtn.type = 'button'; saveBtn.className = 'act-btn pdf'; saveBtn.textContent = 'PDF저장'
+    saveBtn.addEventListener('click', () => downloadFinalPdf(def, collect, doc))
+    savebar.appendChild(saveBtn)
+  }
 }
 
 function buildDoc(def, v, doc) {
@@ -229,8 +239,20 @@ async function doAction(def, collect, doc, action) {
   showHome()
 }
 
-// 아무 단계에서나 현재 값으로 PDF 저장/미리보기.
-async function doPdf(def, collect, doc) {
+// 뷰어: 현재 값으로 PDF를 렌더해 새 탭에서 미리보기만(저장 없음).
+// 창은 클릭 즉시 열어야(동기) 모바일 팝업 차단을 피한다 — 렌더 후 location 설정.
+async function viewPdf(def, collect, doc) {
+  const w = window.open('', '_blank')
+  const built = buildDoc(def, collect(), doc)
+  const bytes = await renderPdf(built)
+  const blob = new Blob([bytes], { type: 'application/pdf' })
+  const url = URL.createObjectURL(blob)
+  if (w) w.location = url
+  else window.open(url, '_blank') // 팝업이 이미 차단됐으면 최후 시도
+  setTimeout(() => URL.revokeObjectURL(url), 60000)
+}
+// 최종 PDF 저장: 서명 완료 단계에서 공식 PDF를 기기로 다운로드(그룹웨어 첨부용).
+async function downloadFinalPdf(def, collect, doc) {
   const built = buildDoc(def, collect(), doc)
   downloadPdf(await renderPdf(built), built.fileName)
 }
@@ -249,8 +271,25 @@ window.addEventListener('online', () => { flushQueue().then(() => { if (home.cla
 
 backBtn.addEventListener('click', showHome)
 window.addEventListener('load', () => { if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(()=>{}) })
-showHome()
-flushQueue()
+
+async function purgeExpiredLocal() {
+  try {
+    const ids = expiredDocIds(await listAll(), Date.now())
+    for (const id of ids) await deleteDoc(id)
+  } catch { /* purge 실패는 치명적 아님 */ }
+}
+async function boot() {
+  // 지사 별칭 링크(#daegu 등)로 열면 그 지사·저장소 URL로 전환·저장. 해시 없으면 기존 설정 유지.
+  const link = resolveBranchLink(location.hash, BRANCH_LINKS)
+  if (link) setConfig({ branch: link.branch, APPS_SCRIPT_URL: link.api })
+  await purgeExpiredLocal()
+  if (online() && APPS()) {
+    try { await loadRoster({ url: APPS() }) } catch { /* 실패해도 캐시/placeholder로 진행 */ }
+  }
+  showHome()
+  flushQueue()
+}
+boot()
 </script>
 </body>
 </html>

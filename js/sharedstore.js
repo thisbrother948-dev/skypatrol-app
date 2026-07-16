@@ -16,3 +16,4 @@ async function call(action, payload, { url, fetchImpl }) {
 export const list = (opts) => call('list', {}, opts)
 export const getDoc = (docId, opts) => call('get', { docId }, opts)
 export const saveDoc = (doc, opts) => call('save', { doc }, opts)
+export const roster = (opts) => call('roster', {}, opts)
