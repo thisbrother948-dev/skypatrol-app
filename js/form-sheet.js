@@ -90,6 +90,8 @@ function dateCell(val) {
   inp.type = 'date'
   inp.className = 'datein'
   inp.value = val || new Date().toISOString().slice(0, 10)
+  // 달력 아이콘을 숨겨(CSS) 좁은 칸에서 날짜가 안 잘리게 함. 탭하면 열리도록 showPicker 보강.
+  inp.addEventListener('click', () => { if (inp.showPicker) { try { inp.showPicker() } catch {} } })
   td.appendChild(inp)
   td.getValue = () => inp.value
   return td
@@ -467,6 +469,7 @@ const SHEET_CSS = `
 .datecell{padding:0;}
 .datein{width:100%;border:none;background:transparent;font-size:12px;font-family:inherit;text-align:center;padding:6px 2px;cursor:pointer;color:inherit;-webkit-appearance:none;appearance:none;}
 .datein:focus{outline:2px solid #1565C0;outline-offset:-2px;background:#E8F1FB;}
+.datein::-webkit-calendar-picker-indicator{display:none;}
 .chkcell{text-align:center;}
 .chk{display:inline-block;padding:3px 5px;cursor:pointer;font-size:12px;user-select:none;}
 .chk.on{color:#1565C0;font-weight:800;}
