@@ -534,10 +534,13 @@ const SHEET_CSS = `
 .sm-clear{background:#eef1f5;color:#5b6470;flex:0 0 90px;}
 .sm-ok{background:#1565C0;color:#fff;}
 /* 화면이 넓으면(태블릿/PC) 글자·여백을 키워 시원하게 */
+/* 화면이 어느 정도 넓으면 제목이 결재박스(150px) 뺀 왼쪽 영역에만 중앙정렬돼 좌측으로 치우침 → 박스 폭만큼 좌측여백 줘 전체 중앙에. (작은 폰은 공간이 없어 제외) */
+@media (min-width:500px){
+  .titlebar .t{padding-left:156px;}
+}
 @media (min-width:600px){
   .sheet td,.sheet th{font-size:13.5px;padding:7px 9px;}
-  /* 넓은 화면: 제목이 결재박스(150px) 뺀 왼쪽 영역에만 중앙정렬돼 왼쪽으로 치우쳐 보임 → 박스 폭만큼 좌측 여백 줘 전체 중앙에 오게 */
-  .titlebar .t{font-size:20px;padding-left:156px;}
+  .titlebar .t{font-size:20px;}
   .lb,.clh td,.clh2,.sub{font-size:13px;}
   .qcell{font-size:13px;}
   .res{font-size:19px;}
