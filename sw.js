@@ -1,4 +1,4 @@
-const CACHE = 'skypatrol-v14'
+const CACHE = 'skypatrol-v15'
 const ASSETS = [
   './index.html', './css/styles.css',
   './js/app.js', './js/config.js', './js/store.js', './js/naming.js', './js/docname.js',
@@ -28,7 +28,9 @@ self.addEventListener('activate', e => e.waitUntil(
 self.addEventListener('fetch', e => {
   if (e.request.method !== 'GET') return
   e.respondWith(
-    fetch(e.request)
+    // cache:'no-cache'=서버에 조건부 요청(ETag)으로 항상 최신 확인. 갱신이 하드리프레시 없이 반영되고,
+    // 안 바뀐 대용량(폰트·템플릿)은 304로 저렴하게 넘어감. 오프라인이면 캐시로 폴백.
+    fetch(e.request, { cache: 'no-cache' })
       .then(res => {
         const copy = res.clone()
         caches.open(CACHE).then(c => c.put(e.request, copy)).catch(() => {})
