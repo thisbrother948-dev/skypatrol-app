@@ -460,7 +460,7 @@ const SHEET_CSS = `
 .sheet td,.sheet th{border:1px solid #8a94a0;padding:5px 6px;font-size:12px;line-height:1.4;vertical-align:middle;word-break:break-word;letter-spacing:-.3px;}
 .titlebar{display:flex;border-bottom:1.5px solid #2b3440;}
 .titlebar .t{flex:1;display:flex;align-items:center;justify-content:center;font-size:14.5px;font-weight:800;letter-spacing:-.5px;padding:9px 6px;text-align:center;line-height:1.2;word-break:keep-all;}
-.gyeoljae{border-left:1px solid #8a94a0;flex:0 0 40%;max-width:160px;}
+.gyeoljae{border-left:1px solid #8a94a0;flex:0 0 150px;}
 .gyeoljae table{width:100%;}
 .gyeoljae td{text-align:center;padding:0;}
 .gyeoljae .gj{writing-mode:vertical-rl;background:#eef1f5;font-size:10.5px;font-weight:700;width:20px;letter-spacing:2px;}
