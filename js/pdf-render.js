@@ -146,9 +146,15 @@ async function drawAttendeeSign(pdf, page, font, f, value, values, rect) {
   if (f.posCell && a.title) drawTextInRect(page, font, a.title, rect(f.posCell))
   if (f.signCell) {
     const signRect = rect(f.signCell)
-    const [nameRect, imgRect] = splitRectH(signRect, a.sign ? 0.42 : 1)
-    if (a.name) drawTextInRect(page, font, a.name, nameRect)
-    if (a.sign) await drawImageContain(pdf, page, a.sign, imgRect)
+    if (a.attendText) {
+      const [nameRect, txtRect] = splitRectH(signRect, a.name ? 0.42 : 0)
+      if (a.name) drawTextInRect(page, font, a.name, nameRect)
+      drawTextInRect(page, font, a.attendText, a.name ? txtRect : signRect)
+    } else {
+      const [nameRect, imgRect] = splitRectH(signRect, a.sign ? 0.42 : 1)
+      if (a.name) drawTextInRect(page, font, a.name, nameRect)
+      if (a.sign) await drawImageContain(pdf, page, a.sign, imgRect)
+    }
   }
 }
 
@@ -156,11 +162,13 @@ export async function renderPdf({ templateBytes, fontBytes, formId, def, values 
   const pdf = await PDFDocument.load(templateBytes)
   pdf.registerFontkit(fontkit)
   const font = await pdf.embedFont(fontBytes, { subset: true })
-  const page = pdf.getPage(0)
-  const H = page.getHeight()
-  const rect = ref => cellRect(formId, ref, H)
+  const pageCalib = def.pageCalib || [formId]
 
   for (const f of def.fields) {
+    const pIdx = f.page || 0
+    const page = pdf.getPage(pIdx)
+    const calibKey = pageCalib[pIdx] || formId
+    const rect = ref => cellRect(calibKey, ref, page.getHeight())
     const v = values[f.key]
     switch (f.type) {
       case 'text':

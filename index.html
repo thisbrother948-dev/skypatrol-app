@@ -23,34 +23,44 @@
 </div>
 <div class="screen active" id="screen-home"></div>
 <div class="screen" id="screen-form"></div>
+<div class="screen" id="screen-me"></div>
 <div class="savebar" id="savebar" hidden></div>
 
 <script type="module">
-import { getConfig, setConfig, resolveAgencyDefaults } from './js/config.js'
+import { getConfig, setConfig, resolveAgencyDefaults, getMeta } from './js/config.js'
 import { resolveBranchLink } from './js/branchlink.js'
 import { BRANCH_LINKS } from './config/branch-links.js'
-import { renderHome } from './js/app.js'
+import { renderHome, setHomeFilter } from './js/app.js'
 import { renderForm } from './js/form-sheet.js'
 import { saveDoc, getDoc, listByAgencyForm, listAll, listBySync, deleteDoc } from './js/store.js'
 import { syncSave, flushPending } from './js/backend.js'
 import { list as sharedList, getDoc as sharedGet, saveDoc as sharedSave } from './js/sharedstore.js'
 import { nextStatus, STATUS, canSaveFinalPdf } from './js/docstatus.js'
 import { nextRound } from './js/naming.js'
-import { buildDocMeta } from './js/docname.js'
+import { buildDocMeta, periodOf } from './js/docname.js'
 import { createSaveButton } from './js/components/savebadge.js'
 import { FORMS } from './forms/index.js'
 import { renderPdf as renderPdfCore } from './js/pdf-render.js'
 import { loadRoster } from './js/roster.js'
+import { getMe, setMe, isValidMe, authorFor, canAskIdentity } from './js/identity.js'
+import { renderMePicker } from './js/me-picker.js'
+import { rosterFromCache } from './js/roster.js'
 import { expiredDocIds } from './js/retention.js'
 
 const home = document.getElementById('screen-home')
 const formScreen = document.getElementById('screen-form')
+const meScreen = document.getElementById('screen-me')
 const savebar = document.getElementById('savebar')
 const branchBadge = document.getElementById('branchBadge')
 const backBtn = document.getElementById('backBtn')
 const online = () => navigator.onLine
 const now = () => new Date().toISOString()
 const APPS = () => getConfig().APPS_SCRIPT_URL
+
+// 신원을 물으려면 진짜 명단이 있어야 한다 — 세 게이트(부팅·로스터갱신·사용자변경)가 같은 판단을 써야 한다.
+// 공유모드에서 지사명이 빈 로스터가 오면 getMeta()가 branches.js placeholder로 폴백하는데,
+// 그게 후보로 새면 실존하지 않는 사람이 author로 영구히 박힌다.
+const askable = () => canAskIdentity({ apps: APPS(), cachedRoster: rosterFromCache(), meta: getMeta() })
 
 // 저장: 공유모드(URL 설정)면 syncSave(로컬즉시+원격+충돌), 로컬모드면 로컬 저장.
 async function persist(doc) {
@@ -105,11 +115,25 @@ async function renderPdf(doc) {
   return renderPdfCore({ templateBytes, fontBytes, formId: doc.formId, def, values: doc.values })
 }
 
+// 신원 게이트 화면. 고르기 전엔 앱을 쓸 수 없다 — 비용 3초·평생 1회이고, 건너뛰면 목적이 무너진다.
+function showMe() {
+  const meta = getMeta()
+  branchBadge.textContent = meta.branch
+  document.getElementById('topTitle').textContent = '사용자 확인'
+  backBtn.style.display = 'none'; savebar.hidden = true
+  home.classList.remove('active'); formScreen.classList.remove('active')
+  meScreen.classList.add('active')
+  renderMePicker(meScreen, {
+    meta,
+    onPick: name => { setMe(name, meta.branch); meScreen.classList.remove('active'); showHome() },
+  })
+}
+
 function showHome() {
   branchBadge.textContent = getConfig().branch
   document.getElementById('topTitle').textContent = 'SkyPatrol'
   backBtn.style.display = 'none'; savebar.hidden = true
-  home.classList.add('active'); formScreen.classList.remove('active')
+  home.classList.add('active'); formScreen.classList.remove('active'); meScreen.classList.remove('active')
   renderHome(home, { loadDocs, shared: !!APPS() }).then(bindHome)
 }
 
@@ -118,6 +142,14 @@ function bindHome() {
   home.querySelectorAll('.open-doc').forEach(s => {
     const row = s.closest('[data-id]')
     s.addEventListener('click', () => openForm(null, row.dataset.id))
+  })
+  home.querySelectorAll('[data-filter]').forEach(b =>
+    b.addEventListener('click', () => { setHomeFilter(b.dataset.filter); showHome() }))
+  const chg = home.querySelector('[data-change-me]')
+  if (chg) chg.addEventListener('click', () => {
+    // 진짜 명단이 없으면 피커를 띄우지 않는다 — placeholder 후보가 새고, 후보 0명이면 뒤로가기도 없어 갇힌다.
+    if (askable()) showMe()
+    else alert('명단을 불러오지 못했습니다. 네트워크를 확인하고 새로고침해주세요.')
   })
 }
 
@@ -144,16 +176,20 @@ async function openForm(formId, existingId) {
 
 function wireAgency(el, def, doc) {
   const agencySel = el.querySelector('[data-key="agency"] select')
-  const monthInp = el.querySelector('[data-key="month"] input')
+  // 날짜 칸은 오버레이 하이브리드(PR#13)라 실제 input이 .datein이다. Task 4가 td에 data-key를 붙였다.
+  const dateInp = el.querySelector(`[data-key="${def.naming?.dateKey}"] .datein`)
   const roundInp = el.querySelector('[data-key="round"] input')
-  if (agencySel && monthInp && roundInp) {
+  if (agencySel && dateInp && roundInp) {
     const suggestRound = async () => {
       if (!agencySel.value) return
       const docs = await listByAgencyForm(agencySel.value, def.id)
-      roundInp.value = nextRound(docs.filter(d => d.docId !== doc?.docId).map(d => d.values), Number(monthInp.value))
+      // nextRound는 순수 — 각 문서의 period를 여기서 뽑아 정규화해 넘긴다.
+      const rows = docs.filter(d => d.docId !== doc?.docId)
+        .map(d => ({ period: periodOf(def, d.values), round: d.values?.round }))
+      roundInp.value = nextRound(rows, periodOf(def, { [def.naming.dateKey]: dateInp.value }))
     }
     agencySel.addEventListener('change', suggestRound)
-    monthInp.addEventListener('change', suggestRound)
+    dateInp.addEventListener('change', suggestRound)
   }
   if (agencySel) {
     agencySel.addEventListener('change', () => {
@@ -197,13 +233,14 @@ function buildSavebar(def, collect, doc) {
 }
 
 function buildDoc(def, v, doc) {
-  const yy = (v.inspectDate || new Date().toISOString().slice(0, 10)).slice(0, 4)
-  const meta = buildDocMeta(def, v, cur.docId || doc?.docId, yy)
+  const meta = buildDocMeta(def, v, cur.docId || doc?.docId)
   cur.docId = meta.docId
+  const author = authorFor(doc, getMe())   // 신규면 지금 나, 기존이면 원래 값 보존(옛 문서는 없는 대로)
   return {
     docId: meta.docId, formId: def.id, branch: getConfig().branch, agency: meta.agency,
     fileName: meta.fileName, status: cur.status, rev: cur.rev,
     values: { ...(doc?.values || {}), ...v }, savedAt: now(),
+    ...(author ? { author } : {}),
   }
 }
 
@@ -211,7 +248,7 @@ async function doSave(def, collect, doc, setState) {
   // 완료된 문서는 조용히 값만 바뀌면 PDF와 어긋나므로, 수정은 '되돌리기'를 먼저.
   if (cur.status === STATUS.DONE) { alert("완료된 문서입니다. 수정하려면 먼저 '되돌리기(수정)'를 눌러주세요."); return }
   const v = collect()
-  const meta = buildDocMeta(def, v, cur.docId || doc?.docId, '0')
+  const meta = buildDocMeta(def, v, cur.docId || doc?.docId)
   if (!meta.byBranch && !v.agency) { alert('대리점을 선택하세요'); return }
   setState('uploading')
   const r = await persist(buildDoc(def, v, doc))
@@ -223,7 +260,7 @@ async function doSave(def, collect, doc, setState) {
 // 상태 넘김/완료/되돌리기. 완료(done)면 PDF 생성(로컬모드는 다운로드).
 async function doAction(def, collect, doc, action) {
   const v = collect()
-  const meta = buildDocMeta(def, v, cur.docId || doc?.docId, '0')
+  const meta = buildDocMeta(def, v, cur.docId || doc?.docId)
   if (!meta.byBranch && !v.agency) { alert('대리점을 선택하세요'); return }
   const built = buildDoc(def, v, doc)
   built.status = nextStatus(built.status, action)
@@ -287,11 +324,29 @@ async function boot() {
   const link = resolveBranchLink(slug, BRANCH_LINKS)
   if (link) setConfig({ branch: link.branch, APPS_SCRIPT_URL: link.api })
   await purgeExpiredLocal()
+
+  // 신원 게이트. 캐시가 있으면 즉시 검증(대기 0 — PR#9의 체감 즉시성 보존),
+  // 없으면(첫 방문) 로스터를 기다린다 — 어차피 물어야 하는 순간이라 대기가 낭비가 아니다.
+  // 못 물으면(askable() 거짓) 그냥 홈으로 통과: 로스터가 도착하면 아래 백그라운드 갱신이 진짜 명단으로 게이트를 띄운다.
+  if (!isValidMe(getMe(), getMeta())) {
+    if (!rosterFromCache() && online() && APPS()) await loadRoster({ url: APPS() }).catch(() => {})
+    if (!isValidMe(getMe(), getMeta()) && askable()) { showMe(); return }
+  }
+
   showHome()   // 캐시/placeholder로 즉시 표시 — 네트워크 대기 안 함
   flushQueue()
   // 로스터는 백그라운드로 받아 갱신되면 홈만 다시 그림(체감 즉시 로딩)
   if (online() && APPS()) {
-    loadRoster({ url: APPS() }).then(r => { if (r && home.classList.contains('active')) showHome() }).catch(() => {})
+    loadRoster({ url: APPS() }).then(r => {
+      if (!r || !home.classList.contains('active')) return
+      // 갱신된 로스터에서 내가 사라짐(인사이동). 단 진짜 명단일 때만 묻는다 — 지사명이 빈 채로
+      // 오면 getMeta()가 placeholder로 폴백해 실존하지 않는 이름이 후보로 샌다.
+      if (!isValidMe(getMe(), getMeta())) {
+        if (askable()) showMe()
+        return
+      }
+      showHome()
+    }).catch(() => {})
   }
 }
 boot()

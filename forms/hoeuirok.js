@@ -17,13 +17,12 @@ export default {
   title: '안전보건협의체 회의록',
   menuTitle: '협의체 회의록',
   sheetDims: 'A1:J25',
-  naming: { by: 'branch', label: '협의체회의록' },
+  naming: { by: 'branch', label: '협의체회의록', dateKey: 'meetingDate' },
   fields: [
-    { key: 'meetingDate', type: 'text', label: '일시', cell: 'B4:E4' },
+    { key: 'meetingDate', type: 'date', label: '일시', default: 'today', cell: 'B4:E4' },
     { key: 'meetingType', type: 'choice', label: '회의방식', options: ['대면', '화상'], cell: 'G4:J4',
       // 원본 템플릿의 각 옵션 □ 위치(pdf-lib 좌하단 원점, pdfplumber 추출). 선택 옵션에 체크 표시.
       optionMarks: { '대면': [368.6, 730.7], '화상': [495.1, 730.7] } },
-    { key: 'month', type: 'month', label: '월', default: 'currentMonth' },
     { key: 'round', type: 'round', label: '차수', default: 'autoNext' },
     { key: 'sigManager', type: 'signature', label: '담당 서명', cell: 'I2:I3' },
     { key: 'att_dogupin', type: 'attendee-sign', label: '도급인 · KT스카이라이프', affiliation: 'KT스카이라이프', namePrefill: 'manager', posCell: 'B8:C8', signCell: 'D8:E8', sosoCell: 'A8' },

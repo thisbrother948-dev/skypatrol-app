@@ -31,12 +31,11 @@ export default {
   id: 'sunhoe',
   title: '도급사업 작업장 순회점검 일지',
   menuTitle: '순회점검',
-  naming: { by: 'agency' },
+  naming: { by: 'agency', label: '순회점검', dateKey: 'inspectDate' },
   sheetDims: 'A1:J36',
   fields: [
     { key: 'agency', type: 'agency-select', label: '대리점(수급인)', required: true, cell: 'B5:E5' },
     { key: 'inspectDate', type: 'date', label: '점검일', default: 'today', cell: 'B4:E4' },
-    { key: 'month', type: 'month', label: '월', default: 'currentMonth' },
     { key: 'round', type: 'round', label: '차수', default: 'autoNext' },
     { key: 'inspector', type: 'text', label: '점검자', cell: 'G4:J4', suggestFrom: 'staff', defaultFrom: 'agencyContact' },
     { key: 'place', type: 'text', label: '점검장소', cell: 'G5:J5' },

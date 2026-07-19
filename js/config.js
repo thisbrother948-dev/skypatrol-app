@@ -7,7 +7,7 @@ const KEY = 'skypatrol.config'
 export const DEFAULT_CONFIG = {
   branch: '대구경북지사',
   agencies: ['행복대리점', '미래대리점', '한빛대리점'],
-  enabledForms: ['sunhoe', 'hapdong', 'hoeuirok'],
+  enabledForms: ['sunhoe', 'hapdong', 'hoeuirok', 'hoeuirok_large'],
   APPS_SCRIPT_URL: '',   // 비면 목(로컬), URL이면 실제 드라이브 저장
 }
 

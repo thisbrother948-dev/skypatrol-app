@@ -152,3 +152,26 @@ textarea{resize:vertical;min-height:56px;line-height:1.5;}
 .sync-badge.s-pending,.sync-badge.s-local{background:#FBEBD3;color:#D07A00;}
 .sync-badge.s-conflict{background:#F9E3E3;color:#C62828;}
 .empty-hint{color:var(--muted,#8a94a0);font-size:12px;padding:2px 2px 6px;}
+
+/* 신원 선택 화면 */
+.me-title{font-size:22px;font-weight:800;color:var(--navy);margin:28px 0 6px;}
+.me-sub{font-size:13px;color:#667;line-height:1.5;margin-bottom:20px;}
+.me-list{display:flex;flex-direction:column;gap:8px;}
+.me-btn{display:flex;align-items:center;justify-content:space-between;gap:10px;
+  width:100%;padding:15px 16px;border:1px solid #dde3ea;border-radius:10px;
+  background:#fff;text-align:left;cursor:pointer;}
+.me-btn:active{background:var(--blue-tint);}
+.me-name{font-size:16px;font-weight:700;color:var(--navy);}
+.me-role{font-size:12px;color:#8894a4;}
+
+/* 홈 — 내 이름 · 필터 · 작성자 배지 */
+.hello{display:flex;align-items:center;justify-content:space-between;gap:8px;}
+.whoami{border:1px solid #dde3ea;border-radius:999px;background:#fff;
+  padding:5px 12px;font-size:12px;font-weight:700;color:var(--navy);cursor:pointer;}
+.whoami:active{background:var(--blue-tint);}
+.home-filter{display:flex;gap:6px;margin:14px 0 4px;}
+.hf-btn{flex:0 0 auto;padding:6px 14px;border:1px solid #dde3ea;border-radius:999px;
+  background:#fff;font-size:12px;font-weight:700;color:#8894a4;cursor:pointer;}
+.hf-btn.on{background:var(--navy);border-color:var(--navy);color:#fff;}
+.author-badge{flex:0 0 auto;font-size:11px;font-weight:700;color:#8894a4;
+  background:#f2f5f8;border-radius:5px;padding:2px 7px;white-space:nowrap;}

@@ -1,17 +1,18 @@
-const CACHE = 'skypatrol-v18'
+const CACHE = 'skypatrol-v21'
 const ASSETS = [
   './index.html', './css/styles.css',
   './js/app.js', './js/config.js', './js/store.js', './js/naming.js', './js/docname.js',
   './js/backend.js', './js/form-sheet.js', './js/form-renderer.js', './js/completion.js',
   './js/docstatus.js', './js/sharedstore.js', './js/roster.js', './js/retention.js', './js/branchlink.js',
+  './js/identity.js', './js/me-picker.js',
   './config/branches.js', './config/branch-links.js',
   './js/components/mark.js', './js/components/photo.js',
   './js/components/savebadge.js', './js/components/signature.js',
-  './forms/index.js', './forms/sunhoe.js', './forms/hapdong.js', './forms/hoeuirok.js',
+  './forms/index.js', './forms/sunhoe.js', './forms/hapdong.js', './forms/hoeuirok.js', './forms/hoeuirok_large.js',
   './manifest.webmanifest', './icons/icon.svg',
   './vendor/pdf-lib.esm.min.js', './vendor/fontkit.esm.min.js',
   './js/pdf-render.js', './js/cellmap.js', './js/grid-dims.js',
-  './templates/sunhoe.pdf', './templates/hapdong.pdf', './templates/hoeuirok.pdf',
+  './templates/sunhoe.pdf', './templates/hapdong.pdf', './templates/hoeuirok.pdf', './templates/hoeuirok_large.pdf',
   './fonts/NanumGothic-Regular.ttf',
 ]
 self.addEventListener('install', e => {

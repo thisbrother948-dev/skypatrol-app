@@ -48,7 +48,7 @@ function ensureOverlays() {
     <h3 class="sm-title">서명</h3>
     <label>이름</label><input type="text" class="sm-name" placeholder="이름 입력">
     <div class="sm-padwrap"></div>
-    <div class="sm-btns"><button class="sm-clear">지우기</button><button class="sm-ok">확인</button></div></div>`
+    <div class="sm-btns"><button class="sm-clear">지우기</button><button class="sm-video" style="display:none">화상 참석</button><button class="sm-ok">확인</button></div></div>`
   signModal.addEventListener('click', e => { if (e.target === signModal) signModal.classList.remove('on') })
   const padHost = signModal.querySelector('.sm-padwrap')
   signPad = createSignaturePad()
@@ -60,13 +60,19 @@ function ensureOverlays() {
     if (signCtx.onConfirm) signCtx.onConfirm({ name, png })
     signModal.classList.remove('on')
   })
+  signModal.querySelector('.sm-video').addEventListener('click', () => {
+    const name = signModal.querySelector('.sm-name').value.trim()
+    if (signCtx.onConfirm) signCtx.onConfirm({ name, attendText: '화상회의 참석' })
+    signModal.classList.remove('on')
+  })
   document.body.appendChild(signModal)
 }
 function openJudge(cell) { ensureOverlays(); judgePop._target = cell; judgePop.classList.add('on') }
-function openSign(title, cur, onConfirm) {
+function openSign(title, cur, onConfirm, opts = {}) {
   ensureOverlays()
   signModal.querySelector('.sm-title').textContent = title
   signModal.querySelector('.sm-name').value = cur?.name || ''
+  signModal.querySelector('.sm-video').style.display = opts.allowVideo ? '' : 'none'
   if (signPad.clear) signPad.clear()
   signCtx = { onConfirm }
   signModal.classList.add('on')
@@ -83,9 +89,10 @@ function editCell(val, ph, cls = '') {
 }
 // 날짜 셀: 탭하면 기기 달력에서 고르는 <input type=date>. 기본값=오늘, 자유 변경.
 // value는 항상 YYYY-MM-DD(PDF 렌더가 기대하는 형식). td.getValue()로 읽는다.
-function dateCell(val) {
+function dateCell(val, key) {
   const td = document.createElement('td')
   td.className = 'val datecell'
+  if (key) td.dataset.key = key   // 회차 자동제안이 밖에서 이 칸을 찾는다
   // 네이티브 날짜 표시는 기기 로케일이라 좁은 칸에서 잘림 → 투명 input(달력만 담당) 위에
   // 우리가 그린 짧은 텍스트(YYYY-MM-DD)를 덮어 항상 안 잘리게 한다.
   const wrap = document.createElement('div')
@@ -93,7 +100,9 @@ function dateCell(val) {
   const inp = document.createElement('input')
   inp.type = 'date'
   inp.className = 'datein'
-  inp.value = val || new Date().toISOString().slice(0, 10)
+  // 옛 값이 'YYYY-MM-DD HH:MM'(회의록 자유텍스트 시절)일 수 있다 — date input은 그걸 거부해
+  // 빈칸이 되므로 앞 10글자만 취한다.
+  inp.value = (val ? String(val).slice(0, 10) : '') || new Date().toISOString().slice(0, 10)
   const label = document.createElement('span')
   label.className = 'datetext'
   label.textContent = inp.value
@@ -116,20 +125,24 @@ function judgeCell(mark) {
 }
 // 서명 셀. holder={name,png}를 제자리에서 갱신 → 호출측 getter가 holder를 읽음.
 // showName=false면 이름줄 표시 안 함(문서 결재란처럼 서명만).
-function signCell(role, holder, showName = true) {
+function signCell(role, holder, showName = true, opts = {}) {
   const td = document.createElement('td')
   td.className = 'signcell'
   const render = () => {
     td.innerHTML = ''
+    if (holder.attendText) { const d = document.createElement('div'); d.className = 'signname'; d.textContent = holder.attendText; td.appendChild(d); td.classList.remove('ph'); return }
     if (holder.png) { const im = new Image(); im.src = holder.png; td.appendChild(im) }
     if (showName && holder.name) { const d = document.createElement('div'); d.className = 'signname'; d.textContent = holder.name; td.appendChild(d) }
     if (!holder.png && !(showName && holder.name)) { td.textContent = '(서명)'; td.classList.add('ph') }
     else td.classList.remove('ph')
   }
   render()
-  td.addEventListener('click', () => openSign(role + ' 서명', holder, ({ name, png }) => {
-    holder.name = name; if (png) holder.png = png; render()
-  }))
+  td.addEventListener('click', () => openSign(role + ' 서명', holder, ({ name, png, attendText }) => {
+    holder.name = name
+    if (attendText) { holder.attendText = attendText; holder.png = null }
+    else if (png) { holder.png = png; holder.attendText = null }
+    render()
+  }, { allowVideo: opts.allowVideo }))
   return td
 }
 
@@ -150,12 +163,10 @@ function gyeoljaeBox(labA, labB, holderA, holderB, roleA, roleB) {
 function metaBar(def, values, getters) {
   const bar = document.createElement('div')
   bar.className = 'sheet-meta'
-  const mm = values.month ?? (new Date().getMonth() + 1)
   const rd = values.round ?? 1
+  // 월 칸은 없다 — 연월은 문서에 기입된 날짜에서 도출한다(따로 받으면 어긋난다).
   bar.innerHTML = `<span class="mlabel">제출 정보</span>
-    <span data-key="month">월 <input type="number" min="1" max="12" value="${mm}"></span>
     <span data-key="round">차수 <input type="number" min="1" value="${rd}"></span>`
-  getters.month = () => Number(bar.querySelector('[data-key="month"] input').value)
   getters.round = () => Number(bar.querySelector('[data-key="round"] input').value)
   return bar
 }
@@ -207,7 +218,7 @@ SHEETS.sunhoe = (def, v, g, root) => {
   const info = document.createElement('table'); sheet.appendChild(info)
   const r1 = info.insertRow()
   r1.innerHTML = `<td class="lb">점검일</td>`
-  const dateTd = dateCell(v.inspectDate); r1.appendChild(dateTd)
+  const dateTd = dateCell(v.inspectDate, 'inspectDate'); r1.appendChild(dateTd)
   g.inspectDate = () => dateTd.getValue()
   r1.insertAdjacentHTML('beforeend', `<td class="lb">점검자</td>`)
   const inspNameTd = editCell(v.inspector || '', '이름'); r1.appendChild(inspNameTd)
@@ -316,7 +327,7 @@ function buildPhotos(sheet, secTitle, key, max, val, g) {
 // ---- 공용: 참석자 셀 [소속, 직위, 성함(서명)] ----
 function attendeeCells(f, v, g, opts = {}) {
   const cur = v[f.key] || {}
-  const holder = { name: cur.name || (f.namePrefill ? (getMeta()[f.namePrefill] || '') : ''), png: cur.sign || null }
+  const holder = { name: cur.name || (f.namePrefill ? (getMeta()[f.namePrefill] || '') : ''), png: cur.sign || null, attendText: cur.attendText || null }
   const sosoTd = document.createElement('td'); sosoTd.className = 'val soso'
   if (f.affiliationInput) {
     sosoTd.contentEditable = 'true'; sosoTd.dataset.ph = '대리점명'
@@ -329,9 +340,10 @@ function attendeeCells(f, v, g, opts = {}) {
     sosoTd.className = 'val soso fixed'; sosoTd.textContent = f.affiliation || ''
   }
   const titleTd = editCell(cur.title || '', '직위', 'att-pos')
-  const signTd = signCell(f.label, holder, true)
+  const signTd = signCell(f.label, holder, true, { allowVideo: !!f.affiliationInput })
   g[f.key] = () => {
-    const out = { title: titleTd.textContent.trim(), name: holder.name, sign: holder.png }
+    const out = { title: titleTd.textContent.trim(), name: holder.name, sign: holder.attendText ? null : holder.png }
+    if (holder.attendText) out.attendText = holder.attendText
     if (f.affiliationInput) out.soso = sosoTd.textContent.trim()
     return out
   }
@@ -362,7 +374,7 @@ SHEETS.hapdong = (def, v, g, root) => {
   // 기본정보
   const info = document.createElement('table'); sheet.appendChild(info)
   const r1 = info.insertRow(); r1.innerHTML = `<td class="lb">점검일</td>`
-  const dt = dateCell(v.inspectDate); r1.appendChild(dt); g.inspectDate = () => dt.getValue()
+  const dt = dateCell(v.inspectDate, 'inspectDate'); r1.appendChild(dt); g.inspectDate = () => dt.getValue()
   r1.insertAdjacentHTML('beforeend', `<td class="lb">점검장소</td>`)
   const pl = editCell(v.place || '', '현장/장소'); r1.appendChild(pl); g.place = () => pl.textContent.trim()
 
@@ -403,7 +415,7 @@ SHEETS.hoeuirok = (def, v, g, root) => {
   // 일시 / 회의방식
   const info = document.createElement('table'); sheet.appendChild(info)
   const r1 = info.insertRow(); r1.innerHTML = `<td class="lb">일시</td>`
-  const dt = editCell(v.meetingDate || new Date().toISOString().slice(0, 10) + ' ', 'YYYY-MM-DD HH:MM'); r1.appendChild(dt); g.meetingDate = () => dt.textContent.trim()
+  const dt = dateCell(v.meetingDate, 'meetingDate'); r1.appendChild(dt); g.meetingDate = () => dt.getValue()
   r1.insertAdjacentHTML('beforeend', `<td class="lb">회의방식</td>`)
   const mt = document.createElement('td'); mt.className = 'chkcell'; r1.appendChild(mt)
   buildChoice(mt, ['대면', '화상'], v.meetingType, reg => g.meetingType = reg)
@@ -433,6 +445,84 @@ SHEETS.hoeuirok = (def, v, g, root) => {
   const pgrid = createPhotoGrid(1, () => {}); (v.prevPhoto || []).forEach(d => pgrid.add(d)); ppTd.appendChild(pgrid.el); g.prevPhoto = () => pgrid.get()
 
   // 법적 협의사항 5개
+  const ag = document.createElement('table'); sheet.appendChild(ag)
+  ag.innerHTML = '<colgroup><col style="width:38%"><col></colgroup>'
+  ag.insertRow().innerHTML = `<td class="sec" colspan="2">법적 협의사항 (산업안전보건법 시행규칙 제79조)</td>`
+  ag.insertRow().innerHTML = `<td class="clh2" style="width:38%">협의항목</td><td class="clh2">협의사항</td>`
+  const agField = F('agreements'); const byNo = new Map((v.agreements || []).map(i => [i.no, i]))
+  const agGetters = []
+  agField.rows.forEach(row => {
+    const tr = ag.insertRow()
+    tr.innerHTML = `<td class="qcell">${row.no}. ${row.label}</td>`
+    const cur = byNo.get(row.no) || {}
+    const td = editCell(cur.text || '', '협의 내용', 'bigcell'); td.style.minHeight = '56px'; tr.appendChild(td)
+    agGetters.push(() => ({ no: row.no, text: td.textContent.trim() }))
+  })
+  g.agreements = () => agGetters.map(fn => fn())
+}
+
+// ---- 협의체 회의록(다수 대리점) — 페이지1 7행 + 구분선 + 페이지2 전폭행 ----
+SHEETS.hoeuirok_large = (def, v, g, root) => {
+  root.appendChild(metaBar(def, v, g))
+  const sheet = document.createElement('div'); sheet.className = 'sheet'; root.appendChild(sheet)
+  const F = k => def.fields.find(f => f.key === k)
+
+  const mgr = { png: v.sigManager || null }, conf = { png: v.sigConfirmer || null }
+  const title = document.createElement('div'); title.className = 'titlebar'
+  title.innerHTML = `<div class="t">${def.title}</div>`
+  title.appendChild(gyeoljaeBox('담당', '승인', mgr, conf, '담당', '승인(지사장)'))
+  sheet.appendChild(title)
+  g.sigManager = () => mgr.png || null; g.sigConfirmer = () => conf.png || null
+
+  // 일시 / 회의방식
+  const info = document.createElement('table'); sheet.appendChild(info)
+  const r1 = info.insertRow(); r1.innerHTML = `<td class="lb">일시</td>`
+  const dt = dateCell(v.meetingDate, 'meetingDate'); r1.appendChild(dt); g.meetingDate = () => dt.getValue()
+  r1.insertAdjacentHTML('beforeend', `<td class="lb">회의방식</td>`)
+  const mt = document.createElement('td'); mt.className = 'chkcell'; r1.appendChild(mt)
+  buildChoice(mt, ['대면', '화상'], v.meetingType, reg => g.meetingType = reg)
+
+  // 참석자: 페이지1(도급인1 + 수급인1~7), 페이지2(수급인 8~20) — def의 f.page로 분리
+  // (하드코딩 인덱스가 아니라 f.page 기반이라야 템플릿/def의 페이지 구성이 바뀌어도
+  // DOM 분할이 PDF 라우팅과 자동으로 일치한다)
+  const suFields = def.fields.filter(f => /^att_su\d+$/.test(f.key)) // su1..su20(정의 순서)
+  const page1Su = suFields.filter(f => (f.page || 0) === 0)
+  const page2Su = suFields.filter(f => f.page === 1)
+  const at = document.createElement('table'); sheet.appendChild(at)
+  attendeeHead(at, '참석자 명단')
+  for (let i = 0; i < 7; i++) {
+    const tr = at.insertRow()
+    if (i === 0) { attendeeCells(F('att_dogupin'), v, g).forEach(td => tr.appendChild(td)) }
+    else { tr.innerHTML = `<td class="val soso"></td><td class="val"></td><td class="signcell empty"></td>` }
+    const su = page1Su[i]
+    if (su) attendeeCells(su, v, g).forEach(td => tr.appendChild(td))
+    else tr.innerHTML += `<td class="val soso"></td><td class="val"></td><td class="signcell empty"></td>`
+  }
+
+  // 페이지 구분선
+  const brk = document.createElement('div'); brk.className = 'page-break'; brk.textContent = '── 2장(계속) · 수급인 서명부 ──'; sheet.appendChild(brk)
+
+  // 참석자: 페이지2(수급인 8~20) — 전폭 단일열 행 [소속 | 직위 | 성함(서명)]
+  const at2 = document.createElement('table'); sheet.appendChild(at2)
+  at2.innerHTML = '<colgroup><col style="width:50%"><col style="width:20%"><col style="width:30%"></colgroup>'
+  at2.insertRow().innerHTML = `<td class="clh2">소속(대리점)</td><td class="clh2">직위</td><td class="clh2">성함(서명)</td>`
+  for (const su of page2Su) {
+    const tr = at2.insertRow()
+    attendeeCells(su, v, g).forEach(td => tr.appendChild(td))
+  }
+
+  // 전 회차 협의사항 및 조치결과 (base와 동일)
+  const pv = document.createElement('table'); sheet.appendChild(pv)
+  pv.innerHTML = '<colgroup><col style="width:34%"><col><col style="width:27%"></colgroup>'
+  pv.insertRow().innerHTML = `<td class="sec" colspan="3">전 회차 협의사항 및 조치결과</td>`
+  pv.insertRow().innerHTML = `<td class="clh2" style="width:34%">협의항목</td><td class="clh2">조치결과</td><td class="clh2" style="width:26%">조치사진</td>`
+  const pr = pv.insertRow()
+  const pa = editCell(v.prevAgenda || '', '전 회차 협의항목', 'bigcell'); pa.style.minHeight = '60px'; pr.appendChild(pa); g.prevAgenda = () => pa.textContent.trim()
+  const prz = editCell(v.prevResult || '', '조치결과', 'bigcell'); prz.style.minHeight = '60px'; pr.appendChild(prz); g.prevResult = () => prz.textContent.trim()
+  const ppTd = document.createElement('td'); ppTd.className = 'photocell'; pr.appendChild(ppTd)
+  const pgrid = createPhotoGrid(1, () => {}); (v.prevPhoto || []).forEach(d => pgrid.add(d)); ppTd.appendChild(pgrid.el); g.prevPhoto = () => pgrid.get()
+
+  // 법적 협의사항 5개 (base와 동일)
   const ag = document.createElement('table'); sheet.appendChild(ag)
   ag.innerHTML = '<colgroup><col style="width:38%"><col></colgroup>'
   ag.insertRow().innerHTML = `<td class="sec" colspan="2">법적 협의사항 (산업안전보건법 시행규칙 제79조)</td>`
@@ -533,6 +623,8 @@ const SHEET_CSS = `
 .sm-btns button{flex:1;border-radius:11px;padding:13px;font-size:14px;font-weight:700;cursor:pointer;border:none;}
 .sm-clear{background:#eef1f5;color:#5b6470;flex:0 0 90px;}
 .sm-ok{background:#1565C0;color:#fff;}
+.page-break{text-align:center;font-size:11px;font-weight:700;color:#5b6470;background:#eef1f5;border:1px dashed #b9c1cc;border-radius:6px;margin:8px 0;padding:5px;}
+.sm-video{background:#eef1f5;color:#1565C0;border:1px solid #1565C0;}
 /* 화면이 넓으면(태블릿/PC) 글자·여백을 키워 시원하게 */
 @media (min-width:600px){
   .sheet td,.sheet th{font-size:13.5px;padding:7px 9px;}
