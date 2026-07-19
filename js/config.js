@@ -14,7 +14,9 @@ export const DEFAULT_CONFIG = {
 export function getConfig() {
   let saved = {}
   try { saved = JSON.parse(localStorage.getItem(KEY) || '{}') } catch { saved = {} }
-  const cfg = { ...DEFAULT_CONFIG, ...saved }
+  // enabledForms는 코드 레벨 기능 목록(사용자 데이터 아님) — 저장본이 덮으면 옛 배포 때
+  // 얼어붙은 목록이 새 양식을 영구히 가린다(별칭 링크가 매 부팅 전체설정을 재저장). 항상 기본값에서.
+  const cfg = { ...DEFAULT_CONFIG, ...saved, enabledForms: DEFAULT_CONFIG.enabledForms }
   if (cfg.branch === '대구·경북지사') cfg.branch = '대구경북지사'  // 옛 표기(가운뎃점) 정규화
   return cfg
 }
