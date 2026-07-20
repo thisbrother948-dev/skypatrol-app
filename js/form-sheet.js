@@ -330,7 +330,7 @@ function attendeeCells(f, v, g, opts = {}) {
   const holder = { name: cur.name || (f.namePrefill ? (getMeta()[f.namePrefill] || '') : ''), png: cur.sign || null, attendText: cur.attendText || null }
   const sosoTd = document.createElement('td'); sosoTd.className = 'val soso'
   if (f.affiliationInput) {
-    sosoTd.contentEditable = 'true'; sosoTd.dataset.ph = '대리점명'
+    sosoTd.contentEditable = 'true'; sosoTd.dataset.ph = opts.affiliationPh || '대리점명'
     if (cur.soso) sosoTd.textContent = cur.soso
   } else if (f.sosoFrom === 'agency' && opts.agencySelect) {
     sosoTd.setAttribute('data-key', 'agency'); sosoTd.appendChild(opts.agencySelect)
@@ -340,7 +340,8 @@ function attendeeCells(f, v, g, opts = {}) {
     sosoTd.className = 'val soso fixed'; sosoTd.textContent = f.affiliation || ''
   }
   const titleTd = editCell(cur.title || '', '직위', 'att-pos')
-  const signTd = signCell(f.label, holder, true, { allowVideo: !!f.affiliationInput })
+  // allowVideo: 명시 지정(opts.allowVideo) 우선, 없으면 옛 규칙(소속 직접입력행=대리점행)대로 추론
+  const signTd = signCell(f.label, holder, true, { allowVideo: opts.allowVideo ?? !!f.affiliationInput })
   g[f.key] = () => {
     const out = { title: titleTd.textContent.trim(), name: holder.name, sign: holder.attendText ? null : holder.png }
     if (holder.attendText) out.attendText = holder.attendText
@@ -348,6 +349,14 @@ function attendeeCells(f, v, g, opts = {}) {
     return out
   }
   return [sosoTd, titleTd, signTd]
+}
+
+// 상대편 슬롯이 없을 때(정의 개수 불일치 등 방어용) 빈 3칸[소속|직위|서명]을 채운다.
+function emptyAttendeeCells() {
+  const soso = document.createElement('td'); soso.className = 'val soso'
+  const pos = document.createElement('td'); pos.className = 'val'
+  const sign = document.createElement('td'); sign.className = 'signcell empty'
+  return [soso, pos, sign]
 }
 
 function attendeeHead(tbl, secTitle) {
@@ -461,7 +470,8 @@ SHEETS.hoeuirok = (def, v, g, root) => {
   g.agreements = () => agGetters.map(fn => fn())
 }
 
-// ---- 협의체 회의록(다수 대리점) — 페이지1 7행 + 구분선 + 페이지2 전폭행 ----
+// ---- 협의체 회의록(다수 대리점) — 도급인20 + 수급인20, 입력화면(모바일)은 한 표로 세로 계속 ----
+// (PDF의 2장 좌우배치는 renderer/pdf 쪽 책임. 여기 입력표는 값만 def 키에 맞으면 된다.)
 SHEETS.hoeuirok_large = (def, v, g, root) => {
   root.appendChild(metaBar(def, v, g))
   const sheet = document.createElement('div'); sheet.className = 'sheet'; root.appendChild(sheet)
@@ -482,33 +492,22 @@ SHEETS.hoeuirok_large = (def, v, g, root) => {
   const mt = document.createElement('td'); mt.className = 'chkcell'; r1.appendChild(mt)
   buildChoice(mt, ['대면', '화상'], v.meetingType, reg => g.meetingType = reg)
 
-  // 참석자: 페이지1(도급인1 + 수급인1~7), 페이지2(수급인 8~20) — def의 f.page로 분리
-  // (하드코딩 인덱스가 아니라 f.page 기반이라야 템플릿/def의 페이지 구성이 바뀌어도
-  // DOM 분할이 PDF 라우팅과 자동으로 일치한다)
+  // 참석자: 도급인20 + 수급인20 — 한 표에 나란히·세로로 계속(대형지사 다장 PDF와 달리
+  // 입력화면은 모바일이라 페이지 구분이 필요 없다). 화상참석은 회의 성격이라 도급인·
+  // 수급인 구분 없이 전 행 allowVideo:true.
+  const dogupinFields = def.fields.filter(f => /^att_dogupin\d+$/.test(f.key)) // dogupin1..20(정의 순서)
   const suFields = def.fields.filter(f => /^att_su\d+$/.test(f.key)) // su1..su20(정의 순서)
-  const page1Su = suFields.filter(f => (f.page || 0) === 0)
-  const page2Su = suFields.filter(f => f.page === 1)
   const at = document.createElement('table'); sheet.appendChild(at)
-  attendeeHead(at, '참석자 명단')
-  for (let i = 0; i < 7; i++) {
+  attendeeHead(at, `참석자 명단 (도급인 ${dogupinFields.length} · 수급인 ${suFields.length})`)
+  const rows = Math.max(dogupinFields.length, suFields.length)
+  for (let i = 0; i < rows; i++) {
     const tr = at.insertRow()
-    if (i === 0) { attendeeCells(F('att_dogupin'), v, g).forEach(td => tr.appendChild(td)) }
-    else { tr.innerHTML = `<td class="val soso"></td><td class="val"></td><td class="signcell empty"></td>` }
-    const su = page1Su[i]
-    if (su) attendeeCells(su, v, g).forEach(td => tr.appendChild(td))
-    else tr.innerHTML += `<td class="val soso"></td><td class="val"></td><td class="signcell empty"></td>`
-  }
-
-  // 페이지 구분선
-  const brk = document.createElement('div'); brk.className = 'page-break'; brk.textContent = '── 2장(계속) · 수급인 서명부 ──'; sheet.appendChild(brk)
-
-  // 참석자: 페이지2(수급인 8~20) — 전폭 단일열 행 [소속 | 직위 | 성함(서명)]
-  const at2 = document.createElement('table'); sheet.appendChild(at2)
-  at2.innerHTML = '<colgroup><col style="width:50%"><col style="width:20%"><col style="width:30%"></colgroup>'
-  at2.insertRow().innerHTML = `<td class="clh2">소속(대리점)</td><td class="clh2">직위</td><td class="clh2">성함(서명)</td>`
-  for (const su of page2Su) {
-    const tr = at2.insertRow()
-    attendeeCells(su, v, g).forEach(td => tr.appendChild(td))
+    const dog = dogupinFields[i]
+    if (dog) attendeeCells(dog, v, g, { allowVideo: true, affiliationPh: '소속 입력' }).forEach(td => tr.appendChild(td))
+    else emptyAttendeeCells().forEach(td => tr.appendChild(td))
+    const su = suFields[i]
+    if (su) attendeeCells(su, v, g, { allowVideo: true }).forEach(td => tr.appendChild(td))
+    else emptyAttendeeCells().forEach(td => tr.appendChild(td))
   }
 
   // 전 회차 협의사항 및 조치결과 (base와 동일)
