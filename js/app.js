@@ -43,11 +43,12 @@ export async function renderHome(root, deps = {}) {
     return `${d.agency ? d.agency + ' · ' : ''}${tail ? tail + ' · ' : ''}${titleOf(d.formId)}`
   }
   const badge = d => (shared && d.sync) ? `<span class="sync-badge s-${d.sync}">${SYNC_BADGE[d.sync] || ''}</span>` : ''
-  const row = d => `
+  const row = (d, deletable) => `
     <div class="draft" data-id="${d.docId}" data-status="${d.status || 'draft'}">
       <span class="open-doc"><span class="dmain">${labelOf(d)}</span></span>
       ${d.author ? `<span class="author-badge">${d.author}</span>` : ''}
       ${badge(d)}
+      ${deletable ? `<button class="del-doc" type="button" data-del="${d.docId}" aria-label="삭제" title="삭제">🗑</button>` : ''}
     </div>`
 
   const menu = (cfg.enabledForms || []).map(id => forms[id]).filter(Boolean).map(f => `
@@ -61,7 +62,7 @@ export async function renderHome(root, deps = {}) {
   for (const d of shown) (byQ[queueOf(d)] || byQ.draft).push(d)
   const sections = SECTIONS.map(s => `
     <div class="section-label">${s.label} · ${byQ[s.key].length}건</div>
-    <div class="doc-list">${byQ[s.key].map(row).join('') || '<div class="empty-hint">없음</div>'}</div>`).join('')
+    <div class="doc-list">${byQ[s.key].map(d => row(d, s.key === 'draft')).join('') || '<div class="empty-hint">없음</div>'}</div>`).join('')
 
   const whoami = me ? `<button class="whoami" data-change-me>${me.name} ▾</button>` : ''
   const toggle = isStaff ? `

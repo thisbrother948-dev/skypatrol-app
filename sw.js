@@ -1,4 +1,4 @@
-const CACHE = 'skypatrol-v22'
+const CACHE = 'skypatrol-v23'
 const ASSETS = [
   './index.html', './css/styles.css',
   './js/app.js', './js/config.js', './js/store.js', './js/naming.js', './js/docname.js',

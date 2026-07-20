@@ -34,7 +34,7 @@ import { renderHome, setHomeFilter } from './js/app.js'
 import { renderForm } from './js/form-sheet.js'
 import { saveDoc, getDoc, listByAgencyForm, listAll, listBySync, deleteDoc } from './js/store.js'
 import { syncSave, flushPending } from './js/backend.js'
-import { list as sharedList, getDoc as sharedGet, saveDoc as sharedSave } from './js/sharedstore.js'
+import { list as sharedList, getDoc as sharedGet, saveDoc as sharedSave, deleteDoc as sharedDelete } from './js/sharedstore.js'
 import { nextStatus, STATUS, canSaveFinalPdf } from './js/docstatus.js'
 import { nextRound } from './js/naming.js'
 import { buildDocMeta, periodOf } from './js/docname.js'
@@ -143,6 +143,8 @@ function bindHome() {
     const row = s.closest('[data-id]')
     s.addEventListener('click', () => openForm(null, row.dataset.id))
   })
+  home.querySelectorAll('[data-del]').forEach(b =>
+    b.addEventListener('click', e => { e.stopPropagation(); deleteDocFlow(b.dataset.del) }))
   home.querySelectorAll('[data-filter]').forEach(b =>
     b.addEventListener('click', () => { setHomeFilter(b.dataset.filter); showHome() }))
   const chg = home.querySelector('[data-change-me]')
@@ -151,6 +153,18 @@ function bindHome() {
     if (askable()) showMe()
     else alert('명단을 불러오지 못했습니다. 네트워크를 확인하고 새로고침해주세요.')
   })
+}
+
+// 초안 삭제: 드라이브를 먼저 지운다(로컬만 지우면 다음 list 동기화에 되살아남).
+// draft만 대상(버튼이 draft 행에만 뜸), 완료 PDF는 서버가 건드리지 않음.
+async function deleteDocFlow(docId) {
+  if (!confirm('이 초안을 삭제할까요?\n완료 전 문서만 삭제되며, 되돌릴 수 없습니다.')) return
+  if (APPS()) {
+    const r = await sharedDelete(docId, { url: APPS() })
+    if (!r.ok) { alert('드라이브에서 삭제하지 못했습니다: ' + (r.error || '')); return }
+  }
+  await deleteDoc(docId)
+  showHome()
 }
 
 let cur = null // 현재 편집 중 문서 메타 {docId?, status, rev}

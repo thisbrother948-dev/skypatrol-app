@@ -47,6 +47,8 @@ body{max-width:720px;margin:0 auto;min-height:100vh;position:relative;padding-bo
 .draft .dsub{font-size:11px;color:var(--muted);margin-top:2px;}
 .draft .cont{margin-left:auto;font-size:12px;font-weight:700;color:var(--blue);}
 .draft .pick{width:20px;height:20px;flex:0 0 auto}
+.del-doc{flex:0 0 auto;background:none;border:none;padding:8px;min-width:44px;min-height:44px;font-size:16px;line-height:1;color:var(--muted);cursor:pointer;border-radius:8px;}
+.del-doc:active{background:var(--warn-t);}
 
 /* 폼 카드 */
 .card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:15px;margin-bottom:14px;box-shadow:var(--shadow);}
